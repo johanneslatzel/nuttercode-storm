@@ -26,3 +26,6 @@ hs_err_pid*
 .classpath
 .project
 /bin/
+
+# test package
+/java/src/de/nuttercode/storm/test
