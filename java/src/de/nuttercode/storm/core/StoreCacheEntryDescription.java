@@ -1,4 +1,4 @@
-package de.nuttercode.store.core;
+package de.nuttercode.storm.core;
 
 /**
  * describes a StoreCacheEntry

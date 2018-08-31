@@ -1,4 +1,4 @@
-package de.nuttercode.store.core;
+package de.nuttercode.storm.core;
 
 import java.io.File;
 import java.io.IOException;
@@ -11,9 +11,9 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
 
-import de.nuttercode.store.StoreConfiguration;
 import de.nuttercode.util.buffer.WriteableBuffer;
 import de.nuttercode.util.buffer.BufferMode;
+import de.nuttercode.storm.StoreConfiguration;
 import de.nuttercode.util.Closeable;
 import de.nuttercode.util.Initializable;
 import de.nuttercode.util.buffer.DynamicBuffer;

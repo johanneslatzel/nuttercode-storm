@@ -1,6 +1,6 @@
-package de.nuttercode.store.core;
+package de.nuttercode.storm.core;
 
-import de.nuttercode.store.StoreItem;
+import de.nuttercode.storm.StoreItem;
 
 /**
  * This class represents a single entitity of a store. The content is not null

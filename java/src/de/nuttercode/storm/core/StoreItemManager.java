@@ -1,4 +1,4 @@
-package de.nuttercode.store.core;
+package de.nuttercode.storm.core;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import de.nuttercode.store.StoreItem;
+import de.nuttercode.storm.StoreItem;
 
 public final class StoreItemManager<T> {
 

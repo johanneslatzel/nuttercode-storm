@@ -1,10 +1,10 @@
-package de.nuttercode.store;
+package de.nuttercode.storm;
 
-import de.nuttercode.store.core.StoreCacheEntry;
+import de.nuttercode.storm.core.StoreCacheEntry;
 
 /**
  * 
- * represents some item in a {@link de.nuttercode.store.Store}
+ * represents some item in a {@link de.nuttercode.storm.Store}
  * 
  * @author Johannes B. Latzel
  *
@@ -19,7 +19,7 @@ public final class StoreItem<T> {
 	private final T content;
 
 	/**
-	 * the item of the item in the {@link de.nuttercode.store.Store}
+	 * the item of the item in the {@link de.nuttercode.storm.Store}
 	 */
 	private final long storeID;
 

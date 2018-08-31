@@ -1,4 +1,4 @@
-package de.nuttercode.store;
+package de.nuttercode.storm;
 
 import java.io.IOException;
 
@@ -7,7 +7,7 @@ import de.nuttercode.util.buffer.WriteableBuffer;
 
 /**
  * 
- * {@link de.nuttercode.store.Store} implementation for {@link java.lang.String}
+ * {@link de.nuttercode.storm.Store} implementation for {@link java.lang.String}
  * 
  * @author Johannes B. Latzel
  *

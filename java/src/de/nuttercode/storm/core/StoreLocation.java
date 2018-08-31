@@ -1,4 +1,4 @@
-package de.nuttercode.store.core;
+package de.nuttercode.storm.core;
 
 /**
  * some location in the store - defined by its file and relative begin and (off

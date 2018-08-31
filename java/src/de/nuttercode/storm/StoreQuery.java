@@ -1,4 +1,4 @@
-package de.nuttercode.store;
+package de.nuttercode.storm;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -7,18 +7,18 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import de.nuttercode.store.core.StoreItemManager;
+import de.nuttercode.storm.core.StoreItemManager;
 
 /**
  * 
- * This class represents a query for items in a {@link de.nuttercode.store.Store}. The query
+ * This class represents a query for items in a {@link de.nuttercode.storm.Store}. The query
  * can be run as often as needed. Changes to the query can be made by calling
  * the intermediate functions.
  * 
  * @author Johannes B. Latzel
  *
  * @param <T>
- *            the type of the content of items in the {@link de.nuttercode.store.Store}
+ *            the type of the content of items in the {@link de.nuttercode.storm.Store}
  */
 public class StoreQuery<T> {
 
@@ -79,7 +79,7 @@ public class StoreQuery<T> {
 	 * 
 	 * @return first item which matches all filters
 	 * @throws IOException
-	 *             when thrown by the {@link de.nuttercode.store.Store}
+	 *             when thrown by the {@link de.nuttercode.storm.Store}
 	 */
 	public T first() throws IOException {
 		T content;
@@ -98,7 +98,7 @@ public class StoreQuery<T> {
 	 * 
 	 * @return last item which matches all filters
 	 * @throws IOException
-	 *             when thrown by the {@link de.nuttercode.store.Store}
+	 *             when thrown by the {@link de.nuttercode.storm.Store}
 	 */
 	public T last() throws IOException {
 		T content;
@@ -118,7 +118,7 @@ public class StoreQuery<T> {
 	 * 
 	 * @return all items which match all filters
 	 * @throws IOException
-	 *             when thrown by the {@link de.nuttercode.store.Store}
+	 *             when thrown by the {@link de.nuttercode.storm.Store}
 	 */
 	public Set<StoreItem<T>> all() throws IOException {
 		Set<StoreItem<T>> itemSet = new HashSet<>();

@@ -1,4 +1,4 @@
-package de.nuttercode.store.core;
+package de.nuttercode.storm.core;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -7,7 +7,7 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import de.nuttercode.store.StoreConfiguration;
+import de.nuttercode.storm.StoreConfiguration;
 import de.nuttercode.util.Initializable;
 
 public final class StoreLocationManager implements Initializable {
