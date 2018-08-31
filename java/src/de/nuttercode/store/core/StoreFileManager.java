@@ -1,0 +1,292 @@
+package de.nuttercode.store.core;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.TreeSet;
+
+import de.nuttercode.store.StoreConfiguration;
+import de.nuttercode.util.buffer.WriteableBuffer;
+import de.nuttercode.util.buffer.BufferMode;
+import de.nuttercode.util.Closeable;
+import de.nuttercode.util.Initializable;
+import de.nuttercode.util.buffer.DynamicBuffer;
+import de.nuttercode.util.buffer.ReadableBuffer;
+
+public final class StoreFileManager implements Closeable, Initializable {
+
+	private final Path storeDirectory;
+	private final FileChannel descriptionChannel;
+	private final FileChannel lastIDChannel;
+	private final FileChannel dataChannel;
+	private boolean isClosed;
+	private final StoreConfiguration storeConfiguration;
+	private final ByteBuffer byteBuffer;
+	private final ByteBuffer clearBuffer;
+	private final TreeSet<Long> emptyStoreItemDescriptionIndexSet;
+	private long lastID;
+	private final ByteBuffer lastIDBuffer;
+	private long totalSpace;
+	private boolean isInitialized;
+
+	public StoreFileManager(StoreConfiguration storeConfiguration) throws IOException {
+		assert (storeConfiguration != null);
+		this.storeDirectory = storeConfiguration.getStoreDirectory();
+		this.storeConfiguration = new StoreConfiguration(storeConfiguration);
+		File storeDirectoryFile = storeDirectory.toFile();
+		if (!storeDirectoryFile.exists()) {
+			if (!storeDirectoryFile.mkdirs())
+				throw new IOException("can't create directories");
+		}
+		isClosed = false;
+		dataChannel = FileChannel.open(getDataFilePath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+				StandardOpenOption.READ);
+		descriptionChannel = FileChannel.open(getDescriptionFilePath(), StandardOpenOption.CREATE,
+				StandardOpenOption.WRITE, StandardOpenOption.READ);
+		lastIDChannel = FileChannel.open(getLastIDFilePath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+				StandardOpenOption.READ);
+		byteBuffer = ByteBuffer.allocateDirect(storeConfiguration.getByteBufferSize());
+		clearBuffer = ByteBuffer.allocateDirect(StoreBuffer.BINARY_SIZE);
+		emptyStoreItemDescriptionIndexSet = new TreeSet<>();
+		lastIDBuffer = ByteBuffer.allocateDirect(Long.BYTES);
+		lastID = readLastID();
+		totalSpace = getDataFilePath().toFile().length();
+		isInitialized = false;
+	}
+
+	private String getAbsoluteSD() {
+		return storeDirectory.toString();
+	}
+
+	private Path getDataFilePath() {
+		return Paths.get(getAbsoluteSD(),
+				storeConfiguration.getStoreName() + '.' + storeConfiguration.getDataFileSuffix());
+	}
+
+	private Path getDescriptionFilePath() {
+		return Paths.get(getAbsoluteSD(),
+				storeConfiguration.getStoreName() + '.' + storeConfiguration.getDescriptionFileSuffix());
+	}
+
+	private Path getLastIDFilePath() {
+		return Paths.get(getAbsoluteSD(),
+				storeConfiguration.getStoreName() + '.' + storeConfiguration.getIDFileSuffix());
+	}
+
+	private void writeComplete(FileChannel fileChannel, long begin, long end, ReadableBuffer buffer)
+			throws IOException {
+		fileChannel.position(begin);
+		while (buffer.hasTransferableData()) {
+			byteBuffer.clear();
+			buffer.transferDataInto(byteBuffer);
+			byteBuffer.flip();
+			if (fileChannel.position() + byteBuffer.remaining() > end)
+				throw new IllegalStateException(fileChannel.position() + " + " + byteBuffer.remaining() + " > " + end);
+			while (byteBuffer.hasRemaining()) {
+				fileChannel.write(byteBuffer);
+			}
+		}
+	}
+
+	private void writeLastID() throws IOException {
+		lastIDBuffer.clear();
+		lastIDBuffer.putLong(lastID);
+		lastIDBuffer.flip();
+		lastIDChannel.position(0);
+		int writtenBytes = 0;
+		int currentWrittenBytes;
+		while ((currentWrittenBytes = lastIDChannel.write(lastIDBuffer)) != -1 && writtenBytes < Long.BYTES) {
+			writtenBytes += currentWrittenBytes;
+		}
+	}
+
+	private long readLastID() throws IOException {
+		if (getLastIDFilePath().toFile().length() < Long.BYTES)
+			return 0;
+		lastIDBuffer.clear();
+		lastIDChannel.position(0);
+		int readBytes = 0;
+		int currentReadBytes;
+		while ((currentReadBytes = lastIDChannel.read(lastIDBuffer)) != -1 && readBytes < Long.BYTES) {
+			readBytes += currentReadBytes;
+		}
+		lastIDBuffer.flip();
+		return lastIDBuffer.getLong();
+	}
+
+	public void writeData(StoreLocation storeLocation, ReadableBuffer buffer) throws IOException {
+		assureNotClosed();
+		assureInitialized();
+		writeComplete(dataChannel, storeLocation.getBegin(), storeLocation.getEnd(), buffer);
+	}
+
+	public void writeDescription(long index, ReadableBuffer buffer) throws IOException {
+		assureNotClosed();
+		assureInitialized();
+		long begin = index * StoreBuffer.BINARY_SIZE;
+		writeComplete(descriptionChannel, begin, begin + StoreBuffer.BINARY_SIZE, buffer);
+	}
+
+	public void clearDescription(long index) throws IOException {
+		assureNotClosed();
+		assureInitialized();
+		clearBuffer.rewind();
+		descriptionChannel.position(index * StoreBuffer.BINARY_SIZE);
+		while (clearBuffer.hasRemaining()) {
+			descriptionChannel.write(clearBuffer);
+		}
+	}
+
+	public void readData(StoreLocation storeLocation, WriteableBuffer buffer) throws IOException {
+		assureNotClosed();
+		assureInitialized();
+		long end = storeLocation.getEnd();
+		dataChannel.position(storeLocation.getBegin());
+		while (dataChannel.position() < end) {
+			byteBuffer.clear();
+			if (dataChannel.position() + byteBuffer.capacity() > end) {
+				byteBuffer.limit((int) (end - dataChannel.position()));
+			}
+			dataChannel.read(byteBuffer);
+			byteBuffer.flip();
+			buffer.putByteBuffer(byteBuffer);
+		}
+	}
+
+	public StoreCacheEntryDescription createNewStoreCacheEntryDescription(StoreLocation storeLocation)
+			throws IOException {
+		assureNotClosed();
+		assureInitialized();
+		long id = lastID++;
+		long index;
+		if (emptyStoreItemDescriptionIndexSet.isEmpty())
+			index = id;
+		else
+			index = emptyStoreItemDescriptionIndexSet.pollFirst();
+		writeLastID();
+		return new StoreCacheEntryDescription(storeLocation, id, index);
+	}
+
+	public Set<StoreCacheEntryDescription> initialize(StoreBuffer storeBuffer) throws IOException {
+
+		assureNotClosed();
+		assureUninitialized();
+
+		Set<StoreCacheEntryDescription> storeItemDescriptionSet = new HashSet<>();
+		boolean hasMoreData = true;
+		long storeItemDescriptionIndex = 0;
+		long currentEnd;
+		StoreCacheEntryDescription storeItemDescription;
+		emptyStoreItemDescriptionIndexSet.clear();
+		byteBuffer.clear();
+
+		try (DynamicBuffer temporaryBuffer = new DynamicBuffer(byteBuffer.capacity(), true)) {
+			while (descriptionChannel.read(byteBuffer) != -1 || hasMoreData) {
+				hasMoreData = false;
+				byteBuffer.flip();
+				if (temporaryBuffer.getMode().equals(BufferMode.Read)) {
+					storeBuffer.putBuffer(temporaryBuffer);
+					temporaryBuffer.setMode(BufferMode.Write);
+				}
+				storeBuffer.putByteBuffer(byteBuffer);
+				storeBuffer.setMode(BufferMode.Read);
+				if (storeBuffer.transferableData() >= StoreBuffer.BINARY_SIZE) {
+					while (storeBuffer.transferableData() >= StoreBuffer.BINARY_SIZE) {
+						storeItemDescription = storeBuffer.getStoreItemDescription(storeItemDescriptionIndex);
+						if (storeItemDescription != null) {
+							storeItemDescriptionSet.add(storeItemDescription);
+							currentEnd = storeItemDescription.getStoreLocation().getEnd();
+							if (currentEnd > totalSpace)
+								totalSpace = currentEnd;
+						} else {
+							emptyStoreItemDescriptionIndexSet.add(storeItemDescriptionIndex);
+						}
+						storeItemDescriptionIndex++;
+					}
+					if (storeBuffer.transferableData() > 0) {
+						temporaryBuffer.putBuffer(storeBuffer);
+						temporaryBuffer.setMode(BufferMode.Read);
+						hasMoreData = true;
+					}
+				}
+				storeBuffer.setMode(BufferMode.Write);
+				byteBuffer.clear();
+			}
+		} catch (RuntimeException e) {
+			throw new RuntimeException(e);
+		}
+
+		isInitialized = true;
+
+		return storeItemDescriptionSet;
+	}
+
+	@Override
+	public void close() throws IOException {
+		assureNotClosed();
+		isClosed = true;
+		dataChannel.force(true);
+		dataChannel.close();
+		descriptionChannel.force(true);
+		descriptionChannel.close();
+		lastIDChannel.force(true);
+		lastIDChannel.close();
+	}
+
+	@Override
+	public boolean isClosed() {
+		return isClosed;
+	}
+
+	public void addEmptyIndex(long index) {
+		emptyStoreItemDescriptionIndexSet.add(index);
+	}
+
+	public StoreLocation createNewStoreLocation(long size) {
+		long begin = totalSpace;
+		long end = totalSpace + size;
+		totalSpace = end;
+		return new StoreLocation(begin, end);
+	}
+
+	public long getTotalSpace() {
+		return totalSpace;
+	}
+
+	@Override
+	public boolean isInitialized() {
+		return isInitialized;
+	}
+
+	public void setDataFileSize(long size) throws IOException {
+		assureNotClosed();
+		assureInitialized();
+		dataChannel.truncate(size);
+		totalSpace = size;
+	}
+
+	public void trimDescriptionFileSize() throws IOException {
+		assureNotClosed();
+		assureInitialized();
+		if (emptyStoreItemDescriptionIndexSet.isEmpty())
+			return;
+		long lastIndex = (descriptionChannel.size() / StoreBuffer.BINARY_SIZE) - 1;
+		long currentIndex = emptyStoreItemDescriptionIndexSet.last();
+		while (currentIndex == lastIndex && currentIndex != -1) {
+			lastIndex--;
+			emptyStoreItemDescriptionIndexSet.remove(currentIndex);
+			if (!emptyStoreItemDescriptionIndexSet.isEmpty())
+				currentIndex = emptyStoreItemDescriptionIndexSet.last();
+			else
+				currentIndex = -1;
+		}
+		descriptionChannel.truncate((lastIndex + 1) * StoreBuffer.BINARY_SIZE);
+	}
+
+}
