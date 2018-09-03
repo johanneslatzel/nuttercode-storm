@@ -3,7 +3,7 @@ package de.nuttercode.storm;
 import java.io.IOException;
 
 import de.nuttercode.util.buffer.ReadableBuffer;
-import de.nuttercode.util.buffer.WriteableBuffer;
+import de.nuttercode.util.buffer.WritableBuffer;
 
 /**
  * 
@@ -19,7 +19,7 @@ public class StringStore extends Store<String> {
 	}
 
 	@Override
-	protected void transfer(String value, WriteableBuffer buffer) {
+	protected void transfer(String value, WritableBuffer buffer) {
 		buffer.putString(value);
 	}
 

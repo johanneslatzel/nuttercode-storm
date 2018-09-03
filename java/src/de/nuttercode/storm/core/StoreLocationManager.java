@@ -8,6 +8,7 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 
 import de.nuttercode.storm.StoreConfiguration;
+import de.nuttercode.util.Assurance;
 import de.nuttercode.util.Initializable;
 
 public final class StoreLocationManager implements Initializable {
@@ -66,19 +67,19 @@ public final class StoreLocationManager implements Initializable {
 
 	public StoreLocation getFreeLocation(long size) {
 		assert (size > 0);
-		assureInitialized();
+		Assurance.assureInitialized(this);
 		return trim(assureFreeLocation(size), size);
 	}
 
 	public void addFreeLocation(StoreLocation storeLocation) {
 		assert (storeLocation != null);
-		assureInitialized();
+		Assurance.assureInitialized(this);
 		add(storeLocation);
 	}
 
 	public void initialize(Set<StoreCacheEntryDescription> initialStoreItemDescriptionSet) {
 
-		assureUninitialized();
+		Assurance.assureNotInitialized(this);
 
 		// put into appropriate data structures
 		SortedSet<StoreLocation> reservedLocationSet = new TreeSet<>();

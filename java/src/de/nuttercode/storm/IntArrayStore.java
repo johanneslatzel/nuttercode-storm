@@ -3,7 +3,7 @@ package de.nuttercode.storm;
 import java.io.IOException;
 
 import de.nuttercode.util.buffer.ReadableBuffer;
-import de.nuttercode.util.buffer.WriteableBuffer;
+import de.nuttercode.util.buffer.WritableBuffer;
 
 /**
  * {@link de.nuttercode.storm.Store} implementation for int[]
@@ -18,7 +18,7 @@ public class IntArrayStore extends Store<int[]> {
 	}
 
 	@Override
-	protected void transfer(int[] value, WriteableBuffer buffer) {
+	protected void transfer(int[] value, WritableBuffer buffer) {
 		buffer.putInt(value.length);
 		for (int i : value)
 			buffer.putInt(i);

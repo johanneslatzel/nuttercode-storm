@@ -11,9 +11,10 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
 
-import de.nuttercode.util.buffer.WriteableBuffer;
+import de.nuttercode.util.buffer.WritableBuffer;
 import de.nuttercode.util.buffer.BufferMode;
 import de.nuttercode.storm.StoreConfiguration;
+import de.nuttercode.util.Assurance;
 import de.nuttercode.util.Closeable;
 import de.nuttercode.util.Initializable;
 import de.nuttercode.util.buffer.DynamicBuffer;
@@ -121,21 +122,21 @@ public final class StoreFileManager implements Closeable, Initializable {
 	}
 
 	public void writeData(StoreLocation storeLocation, ReadableBuffer buffer) throws IOException {
-		assureNotClosed();
-		assureInitialized();
+		Assurance.assureNotClosed(this);
+		Assurance.assureInitialized(this);
 		writeComplete(dataChannel, storeLocation.getBegin(), storeLocation.getEnd(), buffer);
 	}
 
 	public void writeDescription(long index, ReadableBuffer buffer) throws IOException {
-		assureNotClosed();
-		assureInitialized();
+		Assurance.assureNotClosed(this);
+		Assurance.assureInitialized(this);
 		long begin = index * StoreBuffer.BINARY_SIZE;
 		writeComplete(descriptionChannel, begin, begin + StoreBuffer.BINARY_SIZE, buffer);
 	}
 
 	public void clearDescription(long index) throws IOException {
-		assureNotClosed();
-		assureInitialized();
+		Assurance.assureNotClosed(this);
+		Assurance.assureInitialized(this);
 		clearBuffer.rewind();
 		descriptionChannel.position(index * StoreBuffer.BINARY_SIZE);
 		while (clearBuffer.hasRemaining()) {
@@ -143,9 +144,9 @@ public final class StoreFileManager implements Closeable, Initializable {
 		}
 	}
 
-	public void readData(StoreLocation storeLocation, WriteableBuffer buffer) throws IOException {
-		assureNotClosed();
-		assureInitialized();
+	public void readData(StoreLocation storeLocation, WritableBuffer buffer) throws IOException {
+		Assurance.assureNotClosed(this);
+		Assurance.assureInitialized(this);
 		long end = storeLocation.getEnd();
 		dataChannel.position(storeLocation.getBegin());
 		while (dataChannel.position() < end) {
@@ -161,8 +162,8 @@ public final class StoreFileManager implements Closeable, Initializable {
 
 	public StoreCacheEntryDescription createNewStoreCacheEntryDescription(StoreLocation storeLocation)
 			throws IOException {
-		assureNotClosed();
-		assureInitialized();
+		Assurance.assureNotClosed(this);
+		Assurance.assureInitialized(this);
 		long id = lastID++;
 		long index;
 		if (emptyStoreItemDescriptionIndexSet.isEmpty())
@@ -175,18 +176,20 @@ public final class StoreFileManager implements Closeable, Initializable {
 
 	public Set<StoreCacheEntryDescription> initialize(StoreBuffer storeBuffer) throws IOException {
 
-		assureNotClosed();
-		assureUninitialized();
+		Assurance.assureNotClosed(this);
+		Assurance.assureNotInitialized(this);
 
 		Set<StoreCacheEntryDescription> storeItemDescriptionSet = new HashSet<>();
 		boolean hasMoreData = true;
 		long storeItemDescriptionIndex = 0;
 		long currentEnd;
+		DynamicBuffer temporaryBuffer;
 		StoreCacheEntryDescription storeItemDescription;
 		emptyStoreItemDescriptionIndexSet.clear();
 		byteBuffer.clear();
 
-		try (DynamicBuffer temporaryBuffer = new DynamicBuffer(byteBuffer.capacity(), true)) {
+		try {
+			temporaryBuffer = new DynamicBuffer(byteBuffer.capacity(), true);
 			while (descriptionChannel.read(byteBuffer) != -1 || hasMoreData) {
 				hasMoreData = false;
 				byteBuffer.flip();
@@ -229,7 +232,7 @@ public final class StoreFileManager implements Closeable, Initializable {
 
 	@Override
 	public void close() throws IOException {
-		assureNotClosed();
+		Assurance.assureNotClosed(this);
 		isClosed = true;
 		dataChannel.force(true);
 		dataChannel.close();
@@ -265,15 +268,15 @@ public final class StoreFileManager implements Closeable, Initializable {
 	}
 
 	public void setDataFileSize(long size) throws IOException {
-		assureNotClosed();
-		assureInitialized();
+		Assurance.assureNotClosed(this);
+		Assurance.assureInitialized(this);
 		dataChannel.truncate(size);
 		totalSpace = size;
 	}
 
 	public void trimDescriptionFileSize() throws IOException {
-		assureNotClosed();
-		assureInitialized();
+		Assurance.assureNotClosed(this);
+		Assurance.assureInitialized(this);
 		if (emptyStoreItemDescriptionIndexSet.isEmpty())
 			return;
 		long lastIndex = (descriptionChannel.size() / StoreBuffer.BINARY_SIZE) - 1;
