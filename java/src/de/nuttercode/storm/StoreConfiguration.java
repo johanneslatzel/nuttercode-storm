@@ -6,9 +6,9 @@ import java.nio.file.Paths;
 import de.nuttercode.util.Assurance;
 
 /**
- * This class describes how a {@link de.nuttercode.storm.Store} is configured. All settings
+ * This class describes how a {@link de.nuttercode.store.Store} is configured. All settings
  * have default values except the {@link #storeName} and the {@link #basePath}.
- * Note: Once a {@link de.nuttercode.storm.Store} has been created its proper functioning
+ * Note: Once a {@link de.nuttercode.store.Store} has been created its proper functioning
  * depends on some of this attributes - choose appropriate values according to
  * the attributes' descriptions.
  * 
@@ -47,14 +47,14 @@ public final class StoreConfiguration {
 	private long minimumDataFileSize;
 
 	/**
-	 * the unique name of the {@link de.nuttercode.storm.Store} within the {@link #basePath}
+	 * the unique name of the {@link de.nuttercode.store.Store} within the {@link #basePath}
 	 * directory. must not be empty or null.
 	 */
 	private final String storeName;
 
 	/**
 	 * the path to the directory in which all items related to the
-	 * {@link de.nuttercode.storm.Store} will be saved and loaded. must not be empty or null.
+	 * {@link de.nuttercode.store.Store} will be saved and loaded. must not be empty or null.
 	 */
 	private final Path basePath;
 
@@ -73,7 +73,7 @@ public final class StoreConfiguration {
 	 * {@link #basePath}
 	 * 
 	 * @param storeName
-	 *            the unique name of the {@link de.nuttercode.storm.Store} within the
+	 *            the unique name of the {@link de.nuttercode.store.Store} within the
 	 *            {@link #basePath}a
 	 * @param basePath
 	 *            the root directory path in which all store-files will be saved and
