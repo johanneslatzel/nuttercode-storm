@@ -1,7 +1,7 @@
 package de.nuttercode.storm.core;
 
 import de.nuttercode.util.buffer.DynamicBuffer;
-import de.nuttercode.util.test.LongInterval;
+import de.nuttercode.util.LongInterval;
 
 /**
  * a {@link util.buffer.DynamicBuffer} extension - can save and restore

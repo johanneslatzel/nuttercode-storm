@@ -9,7 +9,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 import de.nuttercode.util.buffer.WritableBuffer;
-import de.nuttercode.util.test.LongInterval;
+import de.nuttercode.util.LongInterval;
 import de.nuttercode.storm.core.StoreBuffer;
 import de.nuttercode.storm.core.StoreCacheEntry;
 import de.nuttercode.storm.core.StoreCacheEntryDescription;

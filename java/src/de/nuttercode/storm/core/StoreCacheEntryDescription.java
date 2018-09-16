@@ -1,6 +1,6 @@
 package de.nuttercode.storm.core;
 
-import de.nuttercode.util.test.LongInterval;
+import de.nuttercode.util.LongInterval;
 
 /**
  * describes a StoreCacheEntry

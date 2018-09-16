@@ -9,7 +9,7 @@ import java.util.TreeSet;
 
 import de.nuttercode.storm.StoreConfiguration;
 import de.nuttercode.util.Initializable;
-import de.nuttercode.util.test.LongInterval;
+import de.nuttercode.util.LongInterval;
 
 public final class StoreLocationManager implements Initializable {
 

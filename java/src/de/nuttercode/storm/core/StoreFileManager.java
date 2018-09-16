@@ -12,7 +12,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import de.nuttercode.util.buffer.WritableBuffer;
-import de.nuttercode.util.test.LongInterval;
+import de.nuttercode.util.LongInterval;
 import de.nuttercode.util.buffer.BufferMode;
 import de.nuttercode.storm.Store;
 import de.nuttercode.storm.StoreConfiguration;
