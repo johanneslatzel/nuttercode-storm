@@ -9,10 +9,11 @@ import java.util.TreeSet;
 
 import de.nuttercode.storm.StoreConfiguration;
 import de.nuttercode.util.Initializable;
+import de.nuttercode.util.test.LongInterval;
 
 public final class StoreLocationManager implements Initializable {
 
-	private final List<StoreLocation> freeLocationList;
+	private final List<LongInterval> freeLocationList;
 	private final StoreFileManager storeFileManager;
 	private boolean isInitialized;
 	private final StoreConfiguration storeConfiguration;
@@ -26,18 +27,18 @@ public final class StoreLocationManager implements Initializable {
 		isInitialized = false;
 	}
 
-	private StoreLocation trim(StoreLocation location, long size) {
+	private LongInterval trim(LongInterval location, long size) {
 		assert (size > 0);
 		if (location.getLength() <= size)
 			return location;
-		StoreLocation trimmedLocation = new StoreLocation(location.getBegin(), location.getBegin() + size);
-		freeLocationList.add(new StoreLocation(trimmedLocation.getEnd(), location.getEnd()));
+		LongInterval trimmedLocation = new LongInterval(location.getBegin(), location.getBegin() + size);
+		freeLocationList.add(new LongInterval(trimmedLocation.getEnd(), location.getEnd()));
 		return trimmedLocation;
 	}
 
-	private StoreLocation find(long size) {
+	private LongInterval find(long size) {
 		int freeLocations;
-		StoreLocation currentLocation = null;
+		LongInterval currentLocation = null;
 		if (!freeLocationList.isEmpty()) {
 			freeLocations = freeLocationList.size();
 			for (int a = 0; a < freeLocations; a++) {
@@ -51,26 +52,26 @@ public final class StoreLocationManager implements Initializable {
 		return null;
 	}
 
-	private StoreLocation assureFreeLocation(long size) {
+	private LongInterval assureFreeLocation(long size) {
 		assert (size > 0);
-		StoreLocation foundLocation = find(size);
+		LongInterval foundLocation = find(size);
 		if (foundLocation != null)
 			return foundLocation;
 		long actualSize = Math.max(size, storeConfiguration.getMinimumDataFileSize());
 		return storeFileManager.createNewStoreLocation(actualSize);
 	}
 
-	private void add(StoreLocation storeLocation) {
+	private void add(LongInterval storeLocation) {
 		freeLocationList.add(storeLocation);
 	}
 
-	public StoreLocation getFreeLocation(long size) {
+	public LongInterval getFreeLocation(long size) {
 		assert (size > 0);
 		assert (isInitialized());
 		return trim(assureFreeLocation(size), size);
 	}
 
-	public void addFreeLocation(StoreLocation storeLocation) {
+	public void addFreeLocation(LongInterval storeLocation) {
 		assert (storeLocation != null);
 		assert (isInitialized());
 		add(storeLocation);
@@ -81,23 +82,23 @@ public final class StoreLocationManager implements Initializable {
 		assert (!isInitialized());
 
 		// put into appropriate data structures
-		SortedSet<StoreLocation> reservedLocationSet = new TreeSet<>();
+		SortedSet<LongInterval> reservedLocationSet = new TreeSet<>();
 		for (StoreCacheEntryDescription d : initialStoreItemDescriptionSet) {
 			reservedLocationSet.add(d.getStoreLocation());
 		}
 
 		// analyze data
-		StoreLocation splitLocation;
+		LongInterval splitLocation;
 		long splitBegin;
 		long reservedBegin;
 		long splitEnd;
 		long reservedEnd;
 		long totalSpace = storeFileManager.getTotalSpace();
 		if (totalSpace > 0)
-			freeLocationList.add(new StoreLocation(0, totalSpace));
-		for (StoreLocation reserved : reservedLocationSet) {
+			freeLocationList.add(new LongInterval(0, totalSpace));
+		for (LongInterval reserved : reservedLocationSet) {
 			splitLocation = null;
-			for (StoreLocation location : freeLocationList) {
+			for (LongInterval location : freeLocationList) {
 				if (location.getBegin() <= reserved.getBegin() && reserved.getEnd() <= location.getEnd()) {
 					splitLocation = location;
 				}
@@ -110,9 +111,9 @@ public final class StoreLocationManager implements Initializable {
 			reservedEnd = reserved.getEnd();
 			splitEnd = splitLocation.getEnd();
 			if (splitBegin < reservedBegin)
-				freeLocationList.add(new StoreLocation(splitBegin, reservedBegin));
+				freeLocationList.add(new LongInterval(splitBegin, reservedBegin));
 			if (reservedEnd < splitEnd)
-				freeLocationList.add(new StoreLocation(reservedEnd, splitEnd));
+				freeLocationList.add(new LongInterval(reservedEnd, splitEnd));
 		}
 
 		isInitialized = true;
@@ -126,7 +127,7 @@ public final class StoreLocationManager implements Initializable {
 
 	public long getFreeSpace() {
 		long free = 0;
-		for (StoreLocation storeLocation : freeLocationList)
+		for (LongInterval storeLocation : freeLocationList)
 			free += storeLocation.getLength();
 		return free;
 	}
@@ -137,19 +138,19 @@ public final class StoreLocationManager implements Initializable {
 
 	public void mergeFreeLocations() {
 
-		ArrayList<StoreLocation> locationList = new ArrayList<>(freeLocationList);
+		ArrayList<LongInterval> locationList = new ArrayList<>(freeLocationList);
 		locationList.sort((left, right) -> {
 			return Long.compare(left.getBegin(), right.getBegin());
 		});
 
-		StoreLocation left, right;
+		LongInterval left, right;
 		int leftIndex, rightIndex = 1;
 		while (rightIndex < locationList.size()) {
 			leftIndex = rightIndex - 1;
 			left = locationList.get(leftIndex);
 			right = locationList.get(rightIndex);
 			if (left.getEnd() == right.getBegin()) {
-				locationList.set(leftIndex, new StoreLocation(left.getBegin(), right.getEnd()));
+				locationList.set(leftIndex, new LongInterval(left.getBegin(), right.getEnd()));
 				locationList.remove(rightIndex);
 			} else
 				rightIndex++;
@@ -161,11 +162,11 @@ public final class StoreLocationManager implements Initializable {
 
 	public void trimDataFile() throws IOException {
 		long end = storeFileManager.getTotalSpace();
-		ArrayList<StoreLocation> storeLocationList = new ArrayList<>(freeLocationList);
+		ArrayList<LongInterval> storeLocationList = new ArrayList<>(freeLocationList);
 		storeLocationList.sort((left, right) -> {
 			return Long.compare(right.getEnd(), left.getEnd());
 		});
-		StoreLocation storeLocation;
+		LongInterval storeLocation;
 		for (int a = 0; a < storeLocationList.size(); a++) {
 			storeLocation = storeLocationList.get(a);
 			if (storeLocation.getEnd() == end) {

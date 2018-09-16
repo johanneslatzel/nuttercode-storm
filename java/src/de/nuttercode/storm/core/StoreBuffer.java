@@ -1,6 +1,7 @@
 package de.nuttercode.storm.core;
 
 import de.nuttercode.util.buffer.DynamicBuffer;
+import de.nuttercode.util.test.LongInterval;
 
 /**
  * a {@link util.buffer.DynamicBuffer} extension - can save and restore
@@ -43,7 +44,7 @@ public final class StoreBuffer extends DynamicBuffer {
 		if (begin == 0 && end == 0) {
 			return null;
 		}
-		return new StoreCacheEntryDescription(new StoreLocation(begin, end), storeID, index);
+		return new StoreCacheEntryDescription(new LongInterval(begin, end), storeID, index);
 	}
 
 }

@@ -9,11 +9,11 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 import de.nuttercode.util.buffer.WritableBuffer;
+import de.nuttercode.util.test.LongInterval;
 import de.nuttercode.storm.core.StoreBuffer;
 import de.nuttercode.storm.core.StoreCacheEntry;
 import de.nuttercode.storm.core.StoreCacheEntryDescription;
 import de.nuttercode.storm.core.StoreFileManager;
-import de.nuttercode.storm.core.StoreLocation;
 import de.nuttercode.storm.core.StoreLocationManager;
 import de.nuttercode.util.assurance.Assurance;
 import de.nuttercode.util.assurance.NotNull;
@@ -98,7 +98,7 @@ public class Store<T> implements Closeable {
 		storeBuffer.setMode(BufferMode.Write);
 	}
 
-	private StoreLocation getStoreLocation(long storeID) {
+	private LongInterval getStoreLocation(long storeID) {
 		return itemMap.get(storeID).getDescription().getStoreLocation();
 	}
 
@@ -123,7 +123,7 @@ public class Store<T> implements Closeable {
 		assureOpen();
 		objectTransformer.putInto(content, writableStoreBufferWrapper);
 		storeBuffer.setMode(BufferMode.Read);
-		StoreLocation storeLocation = storeLocationManager.getFreeLocation(storeBuffer.transferableData());
+		LongInterval storeLocation = storeLocationManager.getFreeLocation(storeBuffer.transferableData());
 		storeFileManager.writeData(storeLocation, storeBuffer);
 		storeBuffer.setMode(BufferMode.Write);
 		StoreCacheEntryDescription storeItemDescription = new StoreCacheEntryDescription(storeLocation, storeID,
@@ -145,7 +145,7 @@ public class Store<T> implements Closeable {
 	public final StoreItem<T> store(T content) throws IOException {
 		assureOpen();
 		StoreCacheEntryDescription storeItemDescription;
-		StoreLocation storeLocation;
+		LongInterval storeLocation;
 		objectTransformer.putInto(content, writableStoreBufferWrapper);
 		storeBuffer.setMode(BufferMode.Read);
 		storeLocation = storeLocationManager.getFreeLocation(storeBuffer.transferableData());
@@ -162,7 +162,7 @@ public class Store<T> implements Closeable {
 		assureOpen();
 		if (!contains(storeID))
 			throw new NoSuchElementException();
-		StoreLocation storeLocation = getStoreLocation(storeID);
+		LongInterval storeLocation = getStoreLocation(storeID);
 		long index = getStoreIndex(storeID);
 		clearDescription(index);
 		itemMap.remove(storeID);

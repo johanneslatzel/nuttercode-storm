@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import de.nuttercode.util.buffer.WritableBuffer;
+import de.nuttercode.util.test.LongInterval;
 import de.nuttercode.util.buffer.BufferMode;
 import de.nuttercode.storm.Store;
 import de.nuttercode.storm.StoreConfiguration;
@@ -228,7 +229,7 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 *             {@link #writeComplete(FileChannel, long, long, ReadableBuffer)}
 	 *             does
 	 */
-	public void writeData(StoreLocation storeLocation, ReadableBuffer buffer) throws IOException {
+	public void writeData(LongInterval storeLocation, ReadableBuffer buffer) throws IOException {
 		assert (!isClosed());
 		assert (isInitialized());
 		writeComplete(dataChannel, storeLocation.getBegin(), storeLocation.getEnd(), buffer);
@@ -279,7 +280,7 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 *             when {@link FileChannel#position(long)} or
 	 *             {@link FileChannel#read(ByteBuffer)} does
 	 */
-	public void readData(StoreLocation storeLocation, WritableBuffer buffer) throws IOException {
+	public void readData(LongInterval storeLocation, WritableBuffer buffer) throws IOException {
 		assert (!isClosed());
 		assert (isInitialized());
 		long end = storeLocation.getEnd();
@@ -301,7 +302,7 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 * @throws IOException
 	 *             when {@link #writeLastID()} does
 	 */
-	public StoreCacheEntryDescription createNewStoreCacheEntryDescription(StoreLocation storeLocation)
+	public StoreCacheEntryDescription createNewStoreCacheEntryDescription(LongInterval storeLocation)
 			throws IOException {
 		assert (!isClosed());
 		assert (isInitialized());
@@ -410,11 +411,11 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 * @return new {@link StoreLocation} at the end of the data file specified by
 	 *         size
 	 */
-	public StoreLocation createNewStoreLocation(long size) {
+	public LongInterval createNewStoreLocation(long size) {
 		long begin = totalSpace;
 		long end = totalSpace + size;
 		totalSpace = end;
-		return new StoreLocation(begin, end);
+		return new LongInterval(begin, end);
 	}
 
 	/**

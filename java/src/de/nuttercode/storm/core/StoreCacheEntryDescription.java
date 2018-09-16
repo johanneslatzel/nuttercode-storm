@@ -1,5 +1,7 @@
 package de.nuttercode.storm.core;
 
+import de.nuttercode.util.test.LongInterval;
+
 /**
  * describes a StoreCacheEntry
  * 
@@ -11,7 +13,7 @@ public final class StoreCacheEntryDescription {
 	/**
 	 * location of the StoreItem in the Store
 	 */
-	private final StoreLocation storeLocation;
+	private final LongInterval storeLocation;
 
 	/**
 	 * id of the StoreItem
@@ -23,7 +25,7 @@ public final class StoreCacheEntryDescription {
 	 */
 	private final long index;
 
-	public StoreCacheEntryDescription(StoreLocation storeLocation, long storeID, long index) {
+	public StoreCacheEntryDescription(LongInterval storeLocation, long storeID, long index) {
 		assert (storeLocation != null);
 		assert (index >= 0);
 		this.storeID = storeID;
@@ -35,7 +37,7 @@ public final class StoreCacheEntryDescription {
 		return storeID;
 	}
 
-	public StoreLocation getStoreLocation() {
+	public LongInterval getStoreLocation() {
 		return storeLocation;
 	}
 
