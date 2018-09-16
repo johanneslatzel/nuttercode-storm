@@ -15,10 +15,13 @@ import de.nuttercode.storm.core.StoreCacheEntryDescription;
 import de.nuttercode.storm.core.StoreFileManager;
 import de.nuttercode.storm.core.StoreLocation;
 import de.nuttercode.storm.core.StoreLocationManager;
+import de.nuttercode.util.assurance.Assurance;
+import de.nuttercode.util.assurance.NotNull;
 import de.nuttercode.util.buffer.BufferMode;
+import de.nuttercode.util.buffer.ObjectTransformer;
 import de.nuttercode.util.buffer.ReadableBuffer;
 
-public abstract class Store<T> implements Closeable {
+public class Store<T> implements Closeable {
 
 	/**
 	 * maps {@link StoreItem} ids to {@link StoreCacheEntry}s
@@ -31,8 +34,13 @@ public abstract class Store<T> implements Closeable {
 	private final StoreBuffer storeBuffer;
 	private final ReadableBuffer readableStoreBufferWrapper;
 	private final WritableBuffer writableStoreBufferWrapper;
+	private final ObjectTransformer<T> objectTransformer;
 
-	public Store(StoreConfiguration storeConfiguration) throws IOException {
+	public Store(@NotNull StoreConfiguration storeConfiguration, @NotNull ObjectTransformer<T> objectTransformer)
+			throws IOException {
+		Assurance.assureNotNull(storeConfiguration);
+		Assurance.assureNotNull(objectTransformer);
+		this.objectTransformer = objectTransformer;
 		isClosed = false;
 		storeFileManager = new StoreFileManager(storeConfiguration);
 		storeLocationManager = new StoreLocationManager(storeFileManager, storeConfiguration);
@@ -86,7 +94,7 @@ public abstract class Store<T> implements Closeable {
 			throw new NoSuchElementException();
 		storeFileManager.readData(getStoreLocation(storeID), storeBuffer);
 		storeBuffer.setMode(BufferMode.Read);
-		setContent(storeID, getFrom(readableStoreBufferWrapper));
+		setContent(storeID, objectTransformer.getFrom(readableStoreBufferWrapper));
 		storeBuffer.setMode(BufferMode.Write);
 	}
 
@@ -113,7 +121,7 @@ public abstract class Store<T> implements Closeable {
 
 	public final StoreItem<T> update(long storeID, T content) throws IOException {
 		assureOpen();
-		putInto(content, writableStoreBufferWrapper);
+		objectTransformer.putInto(content, writableStoreBufferWrapper);
 		storeBuffer.setMode(BufferMode.Read);
 		StoreLocation storeLocation = storeLocationManager.getFreeLocation(storeBuffer.transferableData());
 		storeFileManager.writeData(storeLocation, storeBuffer);
@@ -138,7 +146,7 @@ public abstract class Store<T> implements Closeable {
 		assureOpen();
 		StoreCacheEntryDescription storeItemDescription;
 		StoreLocation storeLocation;
-		putInto(content, writableStoreBufferWrapper);
+		objectTransformer.putInto(content, writableStoreBufferWrapper);
 		storeBuffer.setMode(BufferMode.Read);
 		storeLocation = storeLocationManager.getFreeLocation(storeBuffer.transferableData());
 		storeFileManager.writeData(storeLocation, storeBuffer);
@@ -197,9 +205,5 @@ public abstract class Store<T> implements Closeable {
 		storeLocationManager.mergeFreeLocations();
 		storeLocationManager.trimDataFile();
 	}
-
-	protected abstract void putInto(T value, WritableBuffer buffer);
-
-	protected abstract T getFrom(ReadableBuffer buffer);
 
 }
