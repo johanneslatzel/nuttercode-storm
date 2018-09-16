@@ -29,7 +29,7 @@ public final class StoreLocationManager implements Initializable {
 
 	private StoreLocation trim(StoreLocation location, long size) {
 		assert (size > 0);
-		if (location.getSize() <= size)
+		if (location.getLength() <= size)
 			return location;
 		StoreLocation trimmedLocation = new StoreLocation(location.getBegin(), location.getBegin() + size);
 		freeLocationList.add(new StoreLocation(trimmedLocation.getEnd(), location.getEnd()));
@@ -43,7 +43,7 @@ public final class StoreLocationManager implements Initializable {
 			freeLocations = freeLocationList.size();
 			for (int a = 0; a < freeLocations; a++) {
 				currentLocation = freeLocationList.get(a);
-				if (currentLocation.getSize() >= size) {
+				if (currentLocation.getLength() >= size) {
 					freeLocationList.remove(a);
 					return currentLocation;
 				}
@@ -128,7 +128,7 @@ public final class StoreLocationManager implements Initializable {
 	public long getFreeSpace() {
 		long free = 0;
 		for (StoreLocation storeLocation : freeLocationList)
-			free += storeLocation.getSize();
+			free += storeLocation.getLength();
 		return free;
 	}
 
