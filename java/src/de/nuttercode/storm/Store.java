@@ -73,7 +73,7 @@ public abstract class Store<T> implements Closeable {
 			throw new NoSuchElementException();
 		storeFileManager.readData(storeItemManager.getStoreLocation(storeID), storeBuffer);
 		storeBuffer.setMode(BufferMode.Read);
-		storeItemManager.set(storeID, restore(readableStoreBufferWrapper));
+		storeItemManager.set(storeID, getFrom(readableStoreBufferWrapper));
 		storeBuffer.setMode(BufferMode.Write);
 	}
 
@@ -91,7 +91,7 @@ public abstract class Store<T> implements Closeable {
 
 	public final StoreItem<T> update(long storeID, T content) throws IOException {
 		assureOpen();
-		transfer(content, writableStoreBufferWrapper);
+		putInto(content, writableStoreBufferWrapper);
 		storeBuffer.setMode(BufferMode.Read);
 		StoreLocation storeLocation = storeLocationManager.getFreeLocation(storeBuffer.transferableData());
 		storeFileManager.writeData(storeLocation, storeBuffer);
@@ -116,7 +116,7 @@ public abstract class Store<T> implements Closeable {
 		assureOpen();
 		StoreCacheEntryDescription storeItemDescription;
 		StoreLocation storeLocation;
-		transfer(content, writableStoreBufferWrapper);
+		putInto(content, writableStoreBufferWrapper);
 		storeBuffer.setMode(BufferMode.Read);
 		storeLocation = storeLocationManager.getFreeLocation(storeBuffer.transferableData());
 		storeFileManager.writeData(storeLocation, storeBuffer);
@@ -176,8 +176,8 @@ public abstract class Store<T> implements Closeable {
 		storeLocationManager.trimDataFile();
 	}
 
-	protected abstract void transfer(T value, WritableBuffer buffer);
+	protected abstract void putInto(T value, WritableBuffer buffer);
 
-	protected abstract T restore(ReadableBuffer buffer);
+	protected abstract T getFrom(ReadableBuffer buffer);
 
 }

@@ -18,14 +18,14 @@ public class IntArrayStore extends Store<int[]> {
 	}
 
 	@Override
-	protected void transfer(int[] value, WritableBuffer buffer) {
+	protected void putInto(int[] value, WritableBuffer buffer) {
 		buffer.putInt(value.length);
 		for (int i : value)
 			buffer.putInt(i);
 	}
 
 	@Override
-	protected int[] restore(ReadableBuffer buffer) {
+	protected int[] getFrom(ReadableBuffer buffer) {
 		int[] intArray = new int[buffer.getInt()];
 		for (int a = 0; a < intArray.length; a++)
 			intArray[a] = buffer.getInt();

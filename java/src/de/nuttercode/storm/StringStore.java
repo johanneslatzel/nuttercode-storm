@@ -19,12 +19,12 @@ public class StringStore extends Store<String> {
 	}
 
 	@Override
-	protected void transfer(String value, WritableBuffer buffer) {
+	protected void putInto(String value, WritableBuffer buffer) {
 		buffer.putString(value);
 	}
 
 	@Override
-	protected String restore(ReadableBuffer buffer) {
+	protected String getFrom(ReadableBuffer buffer) {
 		return buffer.getString();
 	}
 
