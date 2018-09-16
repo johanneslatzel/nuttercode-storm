@@ -7,35 +7,44 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import de.nuttercode.storm.core.StoreItemManager;
+import de.nuttercode.util.Assurance;
 
 /**
  * 
- * This class represents a query for items in a {@link de.nuttercode.storm.Store}. The query
- * can be run as often as needed. Changes to the query can be made by calling
- * the intermediate functions.
+ * This class represents a query for items in a
+ * {@link de.nuttercode.storm.Store}. The query can be run as often as needed.
+ * Changes to the query can be made by calling the intermediate functions.
  * 
  * @author Johannes B. Latzel
  *
  * @param <T>
- *            the type of the content of items in the {@link de.nuttercode.storm.Store}
+ *            the type of the content of items in the
+ *            {@link de.nuttercode.storm.Store}
  */
 public class StoreQuery<T> {
 
 	private final List<Predicate<Long>> storeIDFilterList;
 	private final List<Predicate<T>> contentFilterList;
-	private final StoreItemManager<T> storeItemManager;
 	private final Store<T> store;
+	private final Set<Long> storeIDSet;
 
-	public StoreQuery(StoreItemManager<T> storeItemManager, Store<T> store) {
-		assert (storeItemManager != null);
+	public StoreQuery(Store<T> store, Set<Long> storeIDSet) {
 		assert (store != null);
-		this.storeItemManager = storeItemManager;
+		Assurance.assureNotNull(storeIDSet);
+		this.storeIDSet = storeIDSet;
 		this.store = store;
 		storeIDFilterList = new ArrayList<>(5);
 		contentFilterList = new ArrayList<>(5);
 	}
 
+	/**
+	 * tests if h satisfies the filterList
+	 * 
+	 * @param filterList
+	 * @param h
+	 *            some element
+	 * @return true if h satisfies the filterList
+	 */
 	private <H> boolean evaluateH(List<Predicate<H>> filterList, H h) {
 		boolean test = true;
 		for (int a = 0; a < filterList.size() && test; a++) {
@@ -83,7 +92,7 @@ public class StoreQuery<T> {
 	 */
 	public T first() throws IOException {
 		T content;
-		for (long storeID : storeItemManager.getStoreIDSet()) {
+		for (long storeID : storeIDSet) {
 			if (!evaluateStoreID(storeID))
 				break;
 			content = store.get(storeID).getContent();
@@ -103,7 +112,7 @@ public class StoreQuery<T> {
 	public T last() throws IOException {
 		T content;
 		T last = null;
-		for (long storeID : storeItemManager.getStoreIDSet()) {
+		for (long storeID : storeIDSet) {
 			if (!evaluateStoreID(storeID))
 				break;
 			content = store.get(storeID).getContent();
@@ -123,7 +132,7 @@ public class StoreQuery<T> {
 	public Set<StoreItem<T>> all() throws IOException {
 		Set<StoreItem<T>> itemSet = new HashSet<>();
 		StoreItem<T> item;
-		for (long storeID : storeItemManager.getStoreIDSet()) {
+		for (long storeID : storeIDSet) {
 			if (evaluateStoreID(storeID)) {
 				item = store.get(storeID);
 				if (evaluateContent(item.getContent()))

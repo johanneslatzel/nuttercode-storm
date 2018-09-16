@@ -2,6 +2,9 @@ package de.nuttercode.storm;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
@@ -10,7 +13,6 @@ import de.nuttercode.storm.core.StoreBuffer;
 import de.nuttercode.storm.core.StoreCacheEntry;
 import de.nuttercode.storm.core.StoreCacheEntryDescription;
 import de.nuttercode.storm.core.StoreFileManager;
-import de.nuttercode.storm.core.StoreItemManager;
 import de.nuttercode.storm.core.StoreLocation;
 import de.nuttercode.storm.core.StoreLocationManager;
 import de.nuttercode.util.buffer.BufferMode;
@@ -18,10 +20,14 @@ import de.nuttercode.util.buffer.ReadableBuffer;
 
 public abstract class Store<T> implements Closeable {
 
+	/**
+	 * maps {@link StoreItem} ids to {@link StoreCacheEntry}s
+	 */
+	private final Map<Long, StoreCacheEntry<T>> itemMap;
+
 	private boolean isClosed;
 	private final StoreLocationManager storeLocationManager;
 	private final StoreFileManager storeFileManager;
-	private final StoreItemManager<T> storeItemManager;
 	private final StoreBuffer storeBuffer;
 	private final ReadableBuffer readableStoreBufferWrapper;
 	private final WritableBuffer writableStoreBufferWrapper;
@@ -30,10 +36,10 @@ public abstract class Store<T> implements Closeable {
 		isClosed = false;
 		storeFileManager = new StoreFileManager(storeConfiguration);
 		storeLocationManager = new StoreLocationManager(storeFileManager, storeConfiguration);
-		storeItemManager = new StoreItemManager<>();
 		storeBuffer = new StoreBuffer();
 		readableStoreBufferWrapper = storeBuffer.readableView();
 		writableStoreBufferWrapper = storeBuffer.writableView();
+		itemMap = new HashMap<>();
 		initialize();
 	}
 
@@ -45,9 +51,8 @@ public abstract class Store<T> implements Closeable {
 
 		// initialize components
 		storeLocationManager.initialize(initialStoreItemDescriptionSet);
-		for (StoreCacheEntryDescription storeItemDescription : initialStoreItemDescriptionSet) {
-			storeItemManager.newItem(storeItemDescription);
-		}
+		for (StoreCacheEntryDescription storeItemDescription : initialStoreItemDescriptionSet)
+			itemMap.put(storeItemDescription.getStoreID(), new StoreCacheEntry<>(storeItemDescription));
 
 	}
 
@@ -68,25 +73,42 @@ public abstract class Store<T> implements Closeable {
 		storeFileManager.addEmptyIndex(index);
 	}
 
+	private void setContent(long storeID, T content) {
+		itemMap.get(storeID).setContent(content);
+	}
+
+	private void setContent(long storeID, StoreCacheEntry<T> item) {
+		itemMap.put(storeID, item);
+	}
+
 	private void cache(long storeID) throws IOException {
 		if (!contains(storeID))
 			throw new NoSuchElementException();
-		storeFileManager.readData(storeItemManager.getStoreLocation(storeID), storeBuffer);
+		storeFileManager.readData(getStoreLocation(storeID), storeBuffer);
 		storeBuffer.setMode(BufferMode.Read);
-		storeItemManager.set(storeID, getFrom(readableStoreBufferWrapper));
+		setContent(storeID, getFrom(readableStoreBufferWrapper));
 		storeBuffer.setMode(BufferMode.Write);
 	}
 
+	private StoreLocation getStoreLocation(long storeID) {
+		return itemMap.get(storeID).getDescription().getStoreLocation();
+	}
+
+	private long getStoreIndex(long storeID) {
+		return itemMap.get(storeID).getDescription().getIndex();
+	}
+
 	public final void clearCache() {
-		storeItemManager.clearCache();
+		for (StoreCacheEntry<T> item : itemMap.values())
+			item.setContent(null);
 	}
 
 	public StoreQuery<T> query() {
-		return new StoreQuery<>(storeItemManager, this);
+		return new StoreQuery<>(this, Collections.unmodifiableSet(itemMap.keySet()));
 	}
 
 	public final boolean contains(long storeID) {
-		return storeItemManager.contains(storeID);
+		return itemMap.containsKey(storeID);
 	}
 
 	public final StoreItem<T> update(long storeID, T content) throws IOException {
@@ -97,19 +119,19 @@ public abstract class Store<T> implements Closeable {
 		storeFileManager.writeData(storeLocation, storeBuffer);
 		storeBuffer.setMode(BufferMode.Write);
 		StoreCacheEntryDescription storeItemDescription = new StoreCacheEntryDescription(storeLocation, storeID,
-				storeItemManager.getStoreIndex(storeID));
-		storeLocationManager.addFreeLocation(storeItemManager.getStoreLocation(storeID));
-		storeItemManager.remove(storeID);
+				getStoreIndex(storeID));
+		storeLocationManager.addFreeLocation(getStoreLocation(storeID));
+		itemMap.remove(storeID);
 		saveDescription(storeItemDescription);
 		StoreCacheEntry<T> newItem = new StoreCacheEntry<>(storeItemDescription, content);
-		storeItemManager.set(storeID, newItem);
+		setContent(storeID, newItem);
 		return newItem.createStoreItem();
 	}
 
 	public final StoreItem<T> get(long storeID) throws IOException {
 		assureOpen();
 		cache(storeID);
-		return storeItemManager.get(storeID);
+		return itemMap.get(storeID).createStoreItem();
 	}
 
 	public final StoreItem<T> store(T content) throws IOException {
@@ -124,18 +146,18 @@ public abstract class Store<T> implements Closeable {
 		storeItemDescription = storeFileManager.createNewStoreCacheEntryDescription(storeLocation);
 		saveDescription(storeItemDescription);
 		StoreCacheEntry<T> item = new StoreCacheEntry<>(storeItemDescription, content);
-		storeItemManager.set(storeItemDescription.getStoreID(), item);
+		setContent(storeItemDescription.getStoreID(), item);
 		return item.createStoreItem();
 	}
 
 	public final void delete(long storeID) throws IOException {
 		assureOpen();
-		if (!storeItemManager.contains(storeID))
+		if (!contains(storeID))
 			throw new NoSuchElementException();
-		StoreLocation storeLocation = storeItemManager.getStoreLocation(storeID);
-		long index = storeItemManager.getStoreIndex(storeID);
+		StoreLocation storeLocation = getStoreLocation(storeID);
+		long index = getStoreIndex(storeID);
 		clearDescription(index);
-		storeItemManager.remove(storeID);
+		itemMap.remove(storeID);
 		storeLocationManager.addFreeLocation(storeLocation);
 	}
 
