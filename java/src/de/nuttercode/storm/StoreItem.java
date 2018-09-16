@@ -19,7 +19,7 @@ public final class StoreItem<T> {
 	private final T content;
 
 	/**
-	 * the item of the item in the {@link de.nuttercode.storm.Store}
+	 * the id of the item in the {@link de.nuttercode.storm.Store}
 	 */
 	private final long storeID;
 

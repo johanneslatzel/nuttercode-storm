@@ -12,32 +12,92 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import de.nuttercode.util.buffer.WritableBuffer;
+import de.nuttercode.util.test.NotNull;
 import de.nuttercode.util.buffer.BufferMode;
+import de.nuttercode.storm.Store;
 import de.nuttercode.storm.StoreConfiguration;
+import de.nuttercode.storm.StoreItem;
 import de.nuttercode.util.Assurance;
 import de.nuttercode.util.Closeable;
 import de.nuttercode.util.Initializable;
 import de.nuttercode.util.buffer.DynamicBuffer;
 import de.nuttercode.util.buffer.ReadableBuffer;
 
+/**
+ * manages the files related to a {@link Store}
+ * 
+ * @author Johannes B. Latzel
+ *
+ */
 public final class StoreFileManager implements Closeable, Initializable {
 
+	/**
+	 * directory in which all files related to the {@link Store} are saved
+	 */
 	private final Path storeDirectory;
+
+	/**
+	 * channel of the description file
+	 */
 	private final FileChannel descriptionChannel;
+
+	/**
+	 * channel of the last id file
+	 */
 	private final FileChannel lastIDChannel;
+
+	/**
+	 * description of the data file
+	 */
 	private final FileChannel dataChannel;
+
+	/**
+	 * true if this manager has been closed
+	 */
 	private boolean isClosed;
+
+	/**
+	 * configuration of the {@link Store}
+	 */
 	private final StoreConfiguration storeConfiguration;
+
+	/**
+	 * buffer for file transactions
+	 */
 	private final ByteBuffer byteBuffer;
+
+	/**
+	 * clear buffer for clearing sections of the description file
+	 */
 	private final ByteBuffer clearBuffer;
+
+	/**
+	 * all available indices for new {@link StoreItem}
+	 */
 	private final TreeSet<Long> emptyStoreItemDescriptionIndexSet;
+
+	/**
+	 * last id given to a new {@link StoreItem}
+	 */
 	private long lastID;
+
+	/**
+	 * buffer for reading / writing {@link #lastID} to/from {@link #lastIDChannel}
+	 */
 	private final ByteBuffer lastIDBuffer;
+
+	/**
+	 * total of used space by the {@link Store}
+	 */
 	private long totalSpace;
+
+	/**
+	 * true if this manager has been initialized
+	 */
 	private boolean isInitialized;
 
-	public StoreFileManager(StoreConfiguration storeConfiguration) throws IOException {
-		assert (storeConfiguration != null);
+	public StoreFileManager(@NotNull StoreConfiguration storeConfiguration) throws IOException {
+		Assurance.assureNotNull(storeConfiguration);
 		this.storeDirectory = storeConfiguration.getStoreDirectory();
 		this.storeConfiguration = new StoreConfiguration(storeConfiguration);
 		File storeDirectoryFile = storeDirectory.toFile();
@@ -61,25 +121,51 @@ public final class StoreFileManager implements Closeable, Initializable {
 		isInitialized = false;
 	}
 
+	/**
+	 * @return absolute path to the store directory
+	 */
 	private String getAbsoluteSD() {
 		return storeDirectory.toString();
 	}
 
+	/**
+	 * @return absolute path to the data file
+	 */
 	private Path getDataFilePath() {
 		return Paths.get(getAbsoluteSD(),
 				storeConfiguration.getStoreName() + '.' + storeConfiguration.getDataFileSuffix());
 	}
 
+	/**
+	 * @return absolute path to the description file
+	 */
 	private Path getDescriptionFilePath() {
 		return Paths.get(getAbsoluteSD(),
 				storeConfiguration.getStoreName() + '.' + storeConfiguration.getDescriptionFileSuffix());
 	}
 
+	/**
+	 * @return absolute path to the lastID file
+	 */
 	private Path getLastIDFilePath() {
 		return Paths.get(getAbsoluteSD(),
 				storeConfiguration.getStoreName() + '.' + storeConfiguration.getIDFileSuffix());
 	}
 
+	/**
+	 * writes all bytes from buffer to the fileChannel beginning at begin with the
+	 * eof of end
+	 * 
+	 * @param fileChannel
+	 * @param begin
+	 * @param end
+	 * @param buffer
+	 * @throws IOException
+	 *             when {@link FileChannel#position(long)} or
+	 *             {@link FileChannel#write(ByteBuffer)} does
+	 * @throws IllegalStateException
+	 *             if buffer has more data than end - begin bytes
+	 */
 	private void writeComplete(FileChannel fileChannel, long begin, long end, ReadableBuffer buffer)
 			throws IOException {
 		fileChannel.position(begin);
@@ -95,6 +181,13 @@ public final class StoreFileManager implements Closeable, Initializable {
 		}
 	}
 
+	/**
+	 * writes {@link #lastID} to {@link #lastIDChannel}
+	 * 
+	 * @throws IOException
+	 *             when {@link FileChannel#write(ByteBuffer)} or
+	 *             {@link FileChannel#position(long)} does
+	 */
 	private void writeLastID() throws IOException {
 		lastIDBuffer.clear();
 		lastIDBuffer.putLong(lastID);
@@ -107,6 +200,12 @@ public final class StoreFileManager implements Closeable, Initializable {
 		}
 	}
 
+	/**
+	 * @return lastID saved in {@link #lastIDChannel}
+	 * @throws IOException
+	 *             when {@link FileChannel#position(long)} or
+	 *             {@link FileChannel#read(ByteBuffer)} does
+	 */
 	private long readLastID() throws IOException {
 		if (getLastIDFilePath().toFile().length() < Long.BYTES)
 			return 0;
@@ -121,12 +220,32 @@ public final class StoreFileManager implements Closeable, Initializable {
 		return lastIDBuffer.getLong();
 	}
 
+	/**
+	 * writes all data of buffer to the data file
+	 * 
+	 * @param storeLocation
+	 * @param buffer
+	 * @throws IOException
+	 *             when
+	 *             {@link #writeComplete(FileChannel, long, long, ReadableBuffer)}
+	 *             does
+	 */
 	public void writeData(StoreLocation storeLocation, ReadableBuffer buffer) throws IOException {
 		Assurance.assureNotClosed(this);
 		Assurance.assureInitialized(this);
 		writeComplete(dataChannel, storeLocation.getBegin(), storeLocation.getEnd(), buffer);
 	}
 
+	/**
+	 * writes the buffer to the description file at the given index
+	 * 
+	 * @param index
+	 * @param buffer
+	 * @throws IOException
+	 *             when
+	 *             {@link #writeComplete(FileChannel, long, long, ReadableBuffer)}
+	 *             does
+	 */
 	public void writeDescription(long index, ReadableBuffer buffer) throws IOException {
 		Assurance.assureNotClosed(this);
 		Assurance.assureInitialized(this);
@@ -134,6 +253,14 @@ public final class StoreFileManager implements Closeable, Initializable {
 		writeComplete(descriptionChannel, begin, begin + StoreBuffer.BINARY_SIZE, buffer);
 	}
 
+	/**
+	 * clears the description of the entry given by the index
+	 * 
+	 * @param index
+	 * @throws IOException
+	 *             when {@link FileChannel#position(long)} or
+	 *             {@link FileChannel#write(ByteBuffer)} does
+	 */
 	public void clearDescription(long index) throws IOException {
 		Assurance.assureNotClosed(this);
 		Assurance.assureInitialized(this);
@@ -144,6 +271,16 @@ public final class StoreFileManager implements Closeable, Initializable {
 		}
 	}
 
+	/**
+	 * reads all data specified by the storeLocation from the data file and puts it
+	 * into buffer
+	 * 
+	 * @param storeLocation
+	 * @param buffer
+	 * @throws IOException
+	 *             when {@link FileChannel#position(long)} or
+	 *             {@link FileChannel#read(ByteBuffer)} does
+	 */
 	public void readData(StoreLocation storeLocation, WritableBuffer buffer) throws IOException {
 		Assurance.assureNotClosed(this);
 		Assurance.assureInitialized(this);
@@ -160,6 +297,12 @@ public final class StoreFileManager implements Closeable, Initializable {
 		}
 	}
 
+	/**
+	 * @param storeLocation
+	 * @return new {@link StoreCacheEntryDescription} given by the storeLocation
+	 * @throws IOException
+	 *             when {@link #writeLastID()} does
+	 */
 	public StoreCacheEntryDescription createNewStoreCacheEntryDescription(StoreLocation storeLocation)
 			throws IOException {
 		Assurance.assureNotClosed(this);
@@ -174,6 +317,14 @@ public final class StoreFileManager implements Closeable, Initializable {
 		return new StoreCacheEntryDescription(storeLocation, id, index);
 	}
 
+	/**
+	 * initializes this manager
+	 * 
+	 * @param storeBuffer
+	 * @return initial {@link StoreCacheEntryDescription}s
+	 * @throws IOException
+	 *             when {@link FileChannel#read(ByteBuffer)} does
+	 */
 	public Set<StoreCacheEntryDescription> initialize(StoreBuffer storeBuffer) throws IOException {
 
 		Assurance.assureNotClosed(this);
@@ -247,10 +398,20 @@ public final class StoreFileManager implements Closeable, Initializable {
 		return isClosed;
 	}
 
+	/**
+	 * adds an index to {@link #emptyStoreItemDescriptionIndexSet}
+	 * 
+	 * @param index
+	 */
 	public void addEmptyIndex(long index) {
 		emptyStoreItemDescriptionIndexSet.add(index);
 	}
 
+	/**
+	 * @param size
+	 * @return new {@link StoreLocation} at the end of the data file specified by
+	 *         size
+	 */
 	public StoreLocation createNewStoreLocation(long size) {
 		long begin = totalSpace;
 		long end = totalSpace + size;
@@ -258,6 +419,9 @@ public final class StoreFileManager implements Closeable, Initializable {
 		return new StoreLocation(begin, end);
 	}
 
+	/**
+	 * @return {@link #totalSpace}
+	 */
 	public long getTotalSpace() {
 		return totalSpace;
 	}
@@ -267,6 +431,13 @@ public final class StoreFileManager implements Closeable, Initializable {
 		return isInitialized;
 	}
 
+	/**
+	 * truncates the data file to size
+	 * 
+	 * @param size
+	 * @throws IOException
+	 *             when {@link FileChannel#truncate(long)} does
+	 */
 	public void setDataFileSize(long size) throws IOException {
 		Assurance.assureNotClosed(this);
 		Assurance.assureInitialized(this);
@@ -274,6 +445,12 @@ public final class StoreFileManager implements Closeable, Initializable {
 		totalSpace = size;
 	}
 
+	/**
+	 * trims to description file to a minimal size
+	 * 
+	 * @throws IOException
+	 *             when {@link FileChannel#truncate(long)} does
+	 */
 	public void trimDescriptionFileSize() throws IOException {
 		Assurance.assureNotClosed(this);
 		Assurance.assureInitialized(this);

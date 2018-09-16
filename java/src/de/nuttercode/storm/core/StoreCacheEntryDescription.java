@@ -8,8 +8,19 @@ package de.nuttercode.storm.core;
  */
 public final class StoreCacheEntryDescription {
 
+	/**
+	 * location of the StoreItem in the Store
+	 */
 	private final StoreLocation storeLocation;
+
+	/**
+	 * id of the StoreItem
+	 */
 	private final long storeID;
+
+	/**
+	 * index in the StoreItemTable
+	 */
 	private final long index;
 
 	public StoreCacheEntryDescription(StoreLocation storeLocation, long storeID, long index) {
