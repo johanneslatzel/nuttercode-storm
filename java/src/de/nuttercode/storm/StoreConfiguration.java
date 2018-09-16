@@ -4,6 +4,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import de.nuttercode.util.Assurance;
+import de.nuttercode.util.test.NotEmpty;
+import de.nuttercode.util.test.NotNull;
+import de.nuttercode.util.test.Positive;
 
 /**
  * This class describes how a {@link de.nuttercode.store.Store} is configured.
@@ -85,7 +88,7 @@ public final class StoreConfiguration {
 	 *            the root directory path in which all store-files will be saved and
 	 *            loaded
 	 */
-	public StoreConfiguration(String storeName, Path basePath) {
+	public StoreConfiguration(@NotEmpty String storeName, @NotNull Path basePath) {
 		Assurance.assureNotEmpty(storeName);
 		Assurance.assureNotNull(basePath);
 		this.storeName = storeName;
@@ -160,7 +163,7 @@ public final class StoreConfiguration {
 	 * @throws IllegalArgumentException
 	 *             if dataFileSuffix is empty or null
 	 */
-	public void setDataFileSuffix(String dataFileSuffix) {
+	public void setDataFileSuffix(@NotEmpty String dataFileSuffix) {
 		Assurance.assureNotEmpty(dataFileSuffix);
 		this.dataFileSuffix = dataFileSuffix;
 	}
@@ -172,7 +175,7 @@ public final class StoreConfiguration {
 	 * @throws IllegalArgumentException
 	 *             if descriptionFileSuffix is empty or null
 	 */
-	public void setDescriptionFileSuffix(String descriptionFileSuffix) {
+	public void setDescriptionFileSuffix(@NotEmpty String descriptionFileSuffix) {
 		Assurance.assureNotEmpty(dataFileSuffix);
 		this.descriptionFileSuffix = descriptionFileSuffix;
 	}
@@ -184,7 +187,7 @@ public final class StoreConfiguration {
 	 * @throws IllegalArgumentException
 	 *             if byteBufferSize <= 0
 	 */
-	public void setByteBufferSize(int byteBufferSize) {
+	public void setByteBufferSize(@Positive int byteBufferSize) {
 		Assurance.assurePositive(byteBufferSize);
 		this.byteBufferSize = byteBufferSize;
 	}
@@ -196,7 +199,7 @@ public final class StoreConfiguration {
 	 * @throws IllegalArgumentException
 	 *             if minimumDataFileSize <= 0
 	 */
-	public void setMinimumDataFileSize(int minimumDataFileSize) {
+	public void setMinimumDataFileSize(@Positive int minimumDataFileSize) {
 		Assurance.assurePositive(minimumDataFileSize);
 		this.minimumDataFileSize = minimumDataFileSize;
 	}
@@ -208,7 +211,7 @@ public final class StoreConfiguration {
 	 * @throws IllegalArgumentException
 	 *             if {@link #idFileSuffix} is empty or null
 	 */
-	public void setIDFileSuffix(String idFileSuffix) {
+	public void setIDFileSuffix(@NotEmpty String idFileSuffix) {
 		Assurance.assureNotEmpty(idFileSuffix);
 		this.idFileSuffix = idFileSuffix;
 	}

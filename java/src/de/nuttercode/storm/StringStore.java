@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import de.nuttercode.util.buffer.ReadableBuffer;
 import de.nuttercode.util.buffer.WritableBuffer;
+import de.nuttercode.util.test.NotNull;
 
 /**
  * 
@@ -14,7 +15,7 @@ import de.nuttercode.util.buffer.WritableBuffer;
  */
 public class StringStore extends Store<String> {
 
-	public StringStore(StoreConfiguration storeConfiguration) throws IOException {
+	public StringStore(@NotNull StoreConfiguration storeConfiguration) throws IOException {
 		super(storeConfiguration);
 	}
 

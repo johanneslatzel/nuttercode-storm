@@ -12,7 +12,6 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import de.nuttercode.util.buffer.WritableBuffer;
-import de.nuttercode.util.test.NotNull;
 import de.nuttercode.util.buffer.BufferMode;
 import de.nuttercode.storm.Store;
 import de.nuttercode.storm.StoreConfiguration;
@@ -96,8 +95,8 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 */
 	private boolean isInitialized;
 
-	public StoreFileManager(@NotNull StoreConfiguration storeConfiguration) throws IOException {
-		Assurance.assureNotNull(storeConfiguration);
+	public StoreFileManager(StoreConfiguration storeConfiguration) throws IOException {
+		assert (storeConfiguration != null);
 		this.storeDirectory = storeConfiguration.getStoreDirectory();
 		this.storeConfiguration = new StoreConfiguration(storeConfiguration);
 		File storeDirectoryFile = storeDirectory.toFile();
