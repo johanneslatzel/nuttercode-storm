@@ -7,8 +7,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import de.nuttercode.util.Assurance;
-
 /**
  * 
  * This class represents a query for items in a
@@ -30,7 +28,7 @@ public class StoreQuery<T> {
 
 	public StoreQuery(Store<T> store, Set<Long> storeIDSet) {
 		assert (store != null);
-		Assurance.assureNotNull(storeIDSet);
+		assert (storeIDSet != null);
 		this.storeIDSet = storeIDSet;
 		this.store = store;
 		storeIDFilterList = new ArrayList<>(5);

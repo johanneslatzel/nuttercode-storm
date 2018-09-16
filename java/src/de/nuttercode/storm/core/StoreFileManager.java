@@ -16,7 +16,6 @@ import de.nuttercode.util.buffer.BufferMode;
 import de.nuttercode.storm.Store;
 import de.nuttercode.storm.StoreConfiguration;
 import de.nuttercode.storm.StoreItem;
-import de.nuttercode.util.Assurance;
 import de.nuttercode.util.Closeable;
 import de.nuttercode.util.Initializable;
 import de.nuttercode.util.buffer.DynamicBuffer;
@@ -230,8 +229,8 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 *             does
 	 */
 	public void writeData(StoreLocation storeLocation, ReadableBuffer buffer) throws IOException {
-		Assurance.assureNotClosed(this);
-		Assurance.assureInitialized(this);
+		assert (!isClosed());
+		assert (isInitialized());
 		writeComplete(dataChannel, storeLocation.getBegin(), storeLocation.getEnd(), buffer);
 	}
 
@@ -246,8 +245,8 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 *             does
 	 */
 	public void writeDescription(long index, ReadableBuffer buffer) throws IOException {
-		Assurance.assureNotClosed(this);
-		Assurance.assureInitialized(this);
+		assert (!isClosed());
+		assert (isInitialized());
 		long begin = index * StoreBuffer.BINARY_SIZE;
 		writeComplete(descriptionChannel, begin, begin + StoreBuffer.BINARY_SIZE, buffer);
 	}
@@ -261,8 +260,8 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 *             {@link FileChannel#write(ByteBuffer)} does
 	 */
 	public void clearDescription(long index) throws IOException {
-		Assurance.assureNotClosed(this);
-		Assurance.assureInitialized(this);
+		assert (!isClosed());
+		assert (isInitialized());
 		clearBuffer.rewind();
 		descriptionChannel.position(index * StoreBuffer.BINARY_SIZE);
 		while (clearBuffer.hasRemaining()) {
@@ -281,8 +280,8 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 *             {@link FileChannel#read(ByteBuffer)} does
 	 */
 	public void readData(StoreLocation storeLocation, WritableBuffer buffer) throws IOException {
-		Assurance.assureNotClosed(this);
-		Assurance.assureInitialized(this);
+		assert (!isClosed());
+		assert (isInitialized());
 		long end = storeLocation.getEnd();
 		dataChannel.position(storeLocation.getBegin());
 		while (dataChannel.position() < end) {
@@ -304,8 +303,8 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 */
 	public StoreCacheEntryDescription createNewStoreCacheEntryDescription(StoreLocation storeLocation)
 			throws IOException {
-		Assurance.assureNotClosed(this);
-		Assurance.assureInitialized(this);
+		assert (!isClosed());
+		assert (isInitialized());
 		long id = lastID++;
 		long index;
 		if (emptyStoreItemDescriptionIndexSet.isEmpty())
@@ -326,8 +325,8 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 */
 	public Set<StoreCacheEntryDescription> initialize(StoreBuffer storeBuffer) throws IOException {
 
-		Assurance.assureNotClosed(this);
-		Assurance.assureNotInitialized(this);
+		assert (!isClosed());
+		assert (!isInitialized());
 
 		Set<StoreCacheEntryDescription> storeItemDescriptionSet = new HashSet<>();
 		boolean hasMoreData = true;
@@ -382,7 +381,7 @@ public final class StoreFileManager implements Closeable, Initializable {
 
 	@Override
 	public void close() throws IOException {
-		Assurance.assureNotClosed(this);
+		assert (!isClosed());
 		isClosed = true;
 		dataChannel.force(true);
 		dataChannel.close();
@@ -438,8 +437,8 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 *             when {@link FileChannel#truncate(long)} does
 	 */
 	public void setDataFileSize(long size) throws IOException {
-		Assurance.assureNotClosed(this);
-		Assurance.assureInitialized(this);
+		assert (!isClosed());
+		assert (isInitialized());
 		dataChannel.truncate(size);
 		totalSpace = size;
 	}
@@ -451,8 +450,8 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 *             when {@link FileChannel#truncate(long)} does
 	 */
 	public void trimDescriptionFileSize() throws IOException {
-		Assurance.assureNotClosed(this);
-		Assurance.assureInitialized(this);
+		assert (!isClosed());
+		assert (isInitialized());
 		if (emptyStoreItemDescriptionIndexSet.isEmpty())
 			return;
 		long lastIndex = (descriptionChannel.size() / StoreBuffer.BINARY_SIZE) - 1;

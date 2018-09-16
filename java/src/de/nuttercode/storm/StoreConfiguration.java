@@ -3,10 +3,10 @@ package de.nuttercode.storm;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import de.nuttercode.util.Assurance;
-import de.nuttercode.util.test.NotEmpty;
-import de.nuttercode.util.test.NotNull;
-import de.nuttercode.util.test.Positive;
+import de.nuttercode.util.assurance.Assurance;
+import de.nuttercode.util.assurance.NotEmpty;
+import de.nuttercode.util.assurance.NotNull;
+import de.nuttercode.util.assurance.Positive;
 
 /**
  * This class describes how a {@link de.nuttercode.store.Store} is configured.
