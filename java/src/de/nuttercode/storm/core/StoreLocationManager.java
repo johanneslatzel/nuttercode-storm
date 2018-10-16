@@ -77,13 +77,13 @@ public final class StoreLocationManager implements Initializable {
 		add(storeLocation);
 	}
 
-	public void initialize(Set<StoreCacheEntryDescription> initialStoreItemDescriptionSet) {
+	public void initialize(Set<StoreItemDescription> initialStoreItemDescriptionSet) {
 
 		assert (!isInitialized());
 
 		// put into appropriate data structures
 		SortedSet<LongInterval> reservedLocationSet = new TreeSet<>();
-		for (StoreCacheEntryDescription d : initialStoreItemDescriptionSet) {
+		for (StoreItemDescription d : initialStoreItemDescriptionSet) {
 			reservedLocationSet.add(d.getStoreLocation());
 		}
 

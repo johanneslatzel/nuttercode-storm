@@ -8,7 +8,7 @@ import de.nuttercode.util.LongInterval;
  * @author Johannes B. Latzel
  *
  */
-public final class StoreCacheEntryDescription {
+public final class StoreItemDescription {
 
 	/**
 	 * location of the StoreItem in the Store
@@ -25,7 +25,7 @@ public final class StoreCacheEntryDescription {
 	 */
 	private final long index;
 
-	public StoreCacheEntryDescription(LongInterval storeLocation, long storeID, long index) {
+	public StoreItemDescription(LongInterval storeLocation, long storeID, long index) {
 		assert (storeLocation != null);
 		assert (index >= 0);
 		this.storeID = storeID;

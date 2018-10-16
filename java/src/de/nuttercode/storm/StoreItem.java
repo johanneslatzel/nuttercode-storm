@@ -1,7 +1,5 @@
 package de.nuttercode.storm;
 
-import de.nuttercode.storm.core.StoreCacheEntry;
-
 /**
  * 
  * represents some item in a {@link de.nuttercode.storm.Store}
@@ -23,10 +21,10 @@ public final class StoreItem<T> {
 	 */
 	private final long storeID;
 
-	public StoreItem(StoreCacheEntry<T> storeItem) {
-		assert (storeItem != null);
-		storeID = storeItem.getDescription().getStoreID();
-		content = storeItem.getContent();
+	public StoreItem(long storeID, T content) {
+		assert (content != null);
+		this.storeID = storeID;
+		this.content = content;
 	}
 
 	/**

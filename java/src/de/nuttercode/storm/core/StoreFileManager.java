@@ -298,11 +298,11 @@ public final class StoreFileManager implements Closeable, Initializable {
 
 	/**
 	 * @param storeLocation
-	 * @return new {@link StoreCacheEntryDescription} given by the storeLocation
+	 * @return new {@link StoreItemDescription} given by the storeLocation
 	 * @throws IOException
 	 *             when {@link #writeLastID()} does
 	 */
-	public StoreCacheEntryDescription createNewStoreCacheEntryDescription(LongInterval storeLocation)
+	public StoreItemDescription createNewStoreCacheEntryDescription(LongInterval storeLocation)
 			throws IOException {
 		assert (!isClosed());
 		assert (isInitialized());
@@ -313,28 +313,28 @@ public final class StoreFileManager implements Closeable, Initializable {
 		else
 			index = emptyStoreItemDescriptionIndexSet.pollFirst();
 		writeLastID();
-		return new StoreCacheEntryDescription(storeLocation, id, index);
+		return new StoreItemDescription(storeLocation, id, index);
 	}
 
 	/**
 	 * initializes this manager
 	 * 
 	 * @param storeBuffer
-	 * @return initial {@link StoreCacheEntryDescription}s
+	 * @return initial {@link StoreItemDescription}s
 	 * @throws IOException
 	 *             when {@link FileChannel#read(ByteBuffer)} does
 	 */
-	public Set<StoreCacheEntryDescription> initialize(StoreBuffer storeBuffer) throws IOException {
+	public Set<StoreItemDescription> initialize(StoreBuffer storeBuffer) throws IOException {
 
 		assert (!isClosed());
 		assert (!isInitialized());
 
-		Set<StoreCacheEntryDescription> storeItemDescriptionSet = new HashSet<>();
+		Set<StoreItemDescription> storeItemDescriptionSet = new HashSet<>();
 		boolean hasMoreData = true;
 		long storeItemDescriptionIndex = 0;
 		long currentEnd;
 		DynamicBuffer temporaryBuffer;
-		StoreCacheEntryDescription storeItemDescription;
+		StoreItemDescription storeItemDescription;
 		emptyStoreItemDescriptionIndexSet.clear();
 		byteBuffer.clear();
 

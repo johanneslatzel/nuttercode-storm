@@ -9,10 +9,11 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 import de.nuttercode.util.buffer.WritableBuffer;
+import de.nuttercode.util.cache.Cache;
+import de.nuttercode.util.cache.WeakCache;
 import de.nuttercode.util.LongInterval;
 import de.nuttercode.storm.core.StoreBuffer;
-import de.nuttercode.storm.core.StoreCacheEntry;
-import de.nuttercode.storm.core.StoreCacheEntryDescription;
+import de.nuttercode.storm.core.StoreItemDescription;
 import de.nuttercode.storm.core.StoreFileManager;
 import de.nuttercode.storm.core.StoreLocationManager;
 import de.nuttercode.util.assurance.Assurance;
@@ -23,11 +24,6 @@ import de.nuttercode.util.buffer.ReadableBuffer;
 
 public class Store<T> implements Closeable {
 
-	/**
-	 * maps {@link StoreItem} ids to {@link StoreCacheEntry}s
-	 */
-	private final Map<Long, StoreCacheEntry<T>> itemMap;
-
 	private boolean isClosed;
 	private final StoreLocationManager storeLocationManager;
 	private final StoreFileManager storeFileManager;
@@ -35,6 +31,8 @@ public class Store<T> implements Closeable {
 	private final ReadableBuffer readableStoreBufferWrapper;
 	private final WritableBuffer writableStoreBufferWrapper;
 	private final ObjectTransformer<T> objectTransformer;
+	private final Cache<Long, T> itemCache;
+	private final Map<Long, StoreItemDescription> descriptionMap;
 
 	public Store(@NotNull StoreConfiguration storeConfiguration, @NotNull ObjectTransformer<T> objectTransformer)
 			throws IOException {
@@ -47,20 +45,21 @@ public class Store<T> implements Closeable {
 		storeBuffer = new StoreBuffer();
 		readableStoreBufferWrapper = storeBuffer.readableView();
 		writableStoreBufferWrapper = storeBuffer.writableView();
-		itemMap = new HashMap<>();
+		itemCache = new WeakCache<>();
+		descriptionMap = new HashMap<>();
 		initialize();
 	}
 
 	private void initialize() throws IOException {
 
 		// get data
-		Set<StoreCacheEntryDescription> initialStoreItemDescriptionSet;
+		Set<StoreItemDescription> initialStoreItemDescriptionSet;
 		initialStoreItemDescriptionSet = storeFileManager.initialize(storeBuffer);
 
 		// initialize components
 		storeLocationManager.initialize(initialStoreItemDescriptionSet);
-		for (StoreCacheEntryDescription storeItemDescription : initialStoreItemDescriptionSet)
-			itemMap.put(storeItemDescription.getStoreID(), new StoreCacheEntry<>(storeItemDescription));
+		for (StoreItemDescription storeItemDescription : initialStoreItemDescriptionSet)
+			descriptionMap.put(storeItemDescription.getStoreID(), storeItemDescription);
 
 	}
 
@@ -69,7 +68,7 @@ public class Store<T> implements Closeable {
 			throw new IllegalStateException("the store is closed");
 	}
 
-	private void saveDescription(StoreCacheEntryDescription description) throws IOException {
+	private void saveDescription(StoreItemDescription description) throws IOException {
 		storeBuffer.putStoreItemDescription(description);
 		storeBuffer.setMode(BufferMode.Read);
 		storeFileManager.writeDescription(description.getIndex(), storeBuffer);
@@ -82,11 +81,7 @@ public class Store<T> implements Closeable {
 	}
 
 	private void setContent(long storeID, T content) {
-		itemMap.get(storeID).setContent(content);
-	}
-
-	private void setContent(long storeID, StoreCacheEntry<T> item) {
-		itemMap.put(storeID, item);
+		itemCache.cache(storeID, content);
 	}
 
 	private void cache(long storeID) throws IOException {
@@ -99,24 +94,19 @@ public class Store<T> implements Closeable {
 	}
 
 	private LongInterval getStoreLocation(long storeID) {
-		return itemMap.get(storeID).getDescription().getStoreLocation();
+		return descriptionMap.get(storeID).getStoreLocation();
 	}
 
 	private long getStoreIndex(long storeID) {
-		return itemMap.get(storeID).getDescription().getIndex();
-	}
-
-	public final void clearCache() {
-		for (StoreCacheEntry<T> item : itemMap.values())
-			item.setContent(null);
+		return descriptionMap.get(storeID).getIndex();
 	}
 
 	public StoreQuery<T> query() {
-		return new StoreQuery<>(this, Collections.unmodifiableSet(itemMap.keySet()));
+		return new StoreQuery<>(this, Collections.unmodifiableSet(descriptionMap.keySet()));
 	}
 
 	public final boolean contains(long storeID) {
-		return itemMap.containsKey(storeID);
+		return descriptionMap.containsKey(storeID);
 	}
 
 	public final StoreItem<T> update(long storeID, T content) throws IOException {
@@ -126,25 +116,24 @@ public class Store<T> implements Closeable {
 		LongInterval storeLocation = storeLocationManager.getFreeLocation(storeBuffer.transferableData());
 		storeFileManager.writeData(storeLocation, storeBuffer);
 		storeBuffer.setMode(BufferMode.Write);
-		StoreCacheEntryDescription storeItemDescription = new StoreCacheEntryDescription(storeLocation, storeID,
+		StoreItemDescription storeItemDescription = new StoreItemDescription(storeLocation, storeID,
 				getStoreIndex(storeID));
 		storeLocationManager.addFreeLocation(getStoreLocation(storeID));
-		itemMap.remove(storeID);
+		descriptionMap.put(storeID, storeItemDescription);
 		saveDescription(storeItemDescription);
-		StoreCacheEntry<T> newItem = new StoreCacheEntry<>(storeItemDescription, content);
-		setContent(storeID, newItem);
-		return newItem.createStoreItem();
+		setContent(storeID, content);
+		return new StoreItem<>(storeID, content);
 	}
 
 	public final StoreItem<T> get(long storeID) throws IOException {
 		assureOpen();
 		cache(storeID);
-		return itemMap.get(storeID).createStoreItem();
+		return new StoreItem<>(storeID, itemCache.get(storeID));
 	}
 
 	public final StoreItem<T> store(T content) throws IOException {
 		assureOpen();
-		StoreCacheEntryDescription storeItemDescription;
+		StoreItemDescription storeItemDescription;
 		LongInterval storeLocation;
 		objectTransformer.putInto(content, writableStoreBufferWrapper);
 		storeBuffer.setMode(BufferMode.Read);
@@ -152,10 +141,10 @@ public class Store<T> implements Closeable {
 		storeFileManager.writeData(storeLocation, storeBuffer);
 		storeBuffer.setMode(BufferMode.Write);
 		storeItemDescription = storeFileManager.createNewStoreCacheEntryDescription(storeLocation);
+		descriptionMap.put(storeItemDescription.getStoreID(), storeItemDescription);
 		saveDescription(storeItemDescription);
-		StoreCacheEntry<T> item = new StoreCacheEntry<>(storeItemDescription, content);
-		setContent(storeItemDescription.getStoreID(), item);
-		return item.createStoreItem();
+		setContent(storeItemDescription.getStoreID(), content);
+		return new StoreItem<>(storeItemDescription.getIndex(), content);
 	}
 
 	public final void delete(long storeID) throws IOException {
@@ -164,8 +153,9 @@ public class Store<T> implements Closeable {
 			throw new NoSuchElementException();
 		LongInterval storeLocation = getStoreLocation(storeID);
 		long index = getStoreIndex(storeID);
+		descriptionMap.remove(storeID);
 		clearDescription(index);
-		itemMap.remove(storeID);
+		itemCache.remove(storeID);
 		storeLocationManager.addFreeLocation(storeLocation);
 	}
 
