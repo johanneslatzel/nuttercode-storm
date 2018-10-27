@@ -1,1 +1,0 @@
-typeSearchIndex = [{"p":"store","l":"StoreConfiguration"}]
