@@ -19,7 +19,7 @@ import de.nuttercode.storm.core.StoreLocationManager;
 import de.nuttercode.util.assurance.Assurance;
 import de.nuttercode.util.assurance.NotNull;
 import de.nuttercode.util.buffer.BufferMode;
-import de.nuttercode.util.buffer.ObjectTransformer;
+import de.nuttercode.util.buffer.transformer.ObjectTransformer;
 import de.nuttercode.util.buffer.ReadableBuffer;
 
 public class Store<T> implements Closeable {
@@ -155,7 +155,8 @@ public class Store<T> implements Closeable {
 		long index = getStoreIndex(storeID);
 		descriptionMap.remove(storeID);
 		clearDescription(index);
-		itemCache.remove(storeID);
+		if (itemCache.contains(storeID))
+			itemCache.remove(storeID);
 		storeLocationManager.addFreeLocation(storeLocation);
 	}
 
@@ -194,6 +195,10 @@ public class Store<T> implements Closeable {
 		storeFileManager.trimDescriptionFileSize();
 		storeLocationManager.mergeFreeLocations();
 		storeLocationManager.trimDataFile();
+	}
+
+	public final Set<Long> getIds() {
+		return Collections.unmodifiableSet(descriptionMap.keySet());
 	}
 
 }
