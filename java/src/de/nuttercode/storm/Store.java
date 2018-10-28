@@ -22,6 +22,13 @@ import de.nuttercode.util.buffer.BufferMode;
 import de.nuttercode.util.buffer.transformer.ObjectTransformer;
 import de.nuttercode.util.buffer.ReadableBuffer;
 
+/**
+ * TODO: documentation
+ * 
+ * @author Johannes B. Latzel
+ *
+ * @param <T> type of objects which will be stored in this store
+ */
 public class Store<T> implements Closeable {
 
 	private boolean isClosed;
@@ -111,6 +118,8 @@ public class Store<T> implements Closeable {
 
 	public final StoreItem<T> update(long storeID, T content) throws IOException {
 		assureOpen();
+		if (!contains(storeID))
+			throw new NoSuchElementException();
 		objectTransformer.putInto(content, writableStoreBufferWrapper);
 		storeBuffer.setMode(BufferMode.Read);
 		LongInterval storeLocation = storeLocationManager.getFreeLocation(storeBuffer.transferableData());
@@ -144,7 +153,7 @@ public class Store<T> implements Closeable {
 		descriptionMap.put(storeItemDescription.getStoreID(), storeItemDescription);
 		saveDescription(storeItemDescription);
 		setContent(storeItemDescription.getStoreID(), content);
-		return new StoreItem<>(storeItemDescription.getIndex(), content);
+		return new StoreItem<>(storeItemDescription.getStoreID(), content);
 	}
 
 	public final void delete(long storeID) throws IOException {
