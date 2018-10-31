@@ -76,11 +76,6 @@ public final class StoreFileManager implements Closeable, Initializable {
 	private final TreeSet<Long> emptyStoreItemDescriptionIndexSet;
 
 	/**
-	 * last id given to a new {@link StoreItem}
-	 */
-	private long lastID;
-
-	/**
 	 * buffer for reading / writing {@link #lastID} to/from {@link #lastIDChannel}
 	 */
 	private final ByteBuffer lastIDBuffer;
@@ -94,6 +89,16 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 * true if this manager has been initialized
 	 */
 	private boolean isInitialized;
+
+	/**
+	 * begin id of available ids. all ids within [idBegin, idEnd] are available
+	 */
+	private long idBegin;
+
+	/**
+	 * end id of available ids. all ids within [idBegin, idEnd] are available
+	 */
+	private long idEnd;
 
 	public StoreFileManager(StoreConfiguration storeConfiguration) throws IOException {
 		assert (storeConfiguration != null);
@@ -115,9 +120,21 @@ public final class StoreFileManager implements Closeable, Initializable {
 		clearBuffer = ByteBuffer.allocateDirect(StoreBuffer.BINARY_SIZE);
 		emptyStoreItemDescriptionIndexSet = new TreeSet<>();
 		lastIDBuffer = ByteBuffer.allocateDirect(Long.BYTES);
-		lastID = readLastID();
+		long lastID = readLastID();
+		idBegin = lastID;
+		idEnd = lastID;
 		totalSpace = getDataFilePath().toFile().length();
 		isInitialized = false;
+	}
+
+	private long fetchID() throws IOException {
+		long id = idBegin;
+		if (idEnd - idBegin == 0) {
+			idEnd = id + storeConfiguration.getIdIncrease();
+			writeLastID(idEnd + 1);
+		}
+		idBegin++;
+		return id;
 	}
 
 	/**
@@ -159,11 +176,9 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 * @param begin
 	 * @param end
 	 * @param buffer
-	 * @throws IOException
-	 *             when {@link FileChannel#position(long)} or
-	 *             {@link FileChannel#write(ByteBuffer)} does
-	 * @throws IllegalStateException
-	 *             if buffer has more data than end - begin bytes
+	 * @throws IOException           when {@link FileChannel#position(long)} or
+	 *                               {@link FileChannel#write(ByteBuffer)} does
+	 * @throws IllegalStateException if buffer has more data than end - begin bytes
 	 */
 	private void writeComplete(FileChannel fileChannel, long begin, long end, ReadableBuffer buffer)
 			throws IOException {
@@ -183,11 +198,10 @@ public final class StoreFileManager implements Closeable, Initializable {
 	/**
 	 * writes {@link #lastID} to {@link #lastIDChannel}
 	 * 
-	 * @throws IOException
-	 *             when {@link FileChannel#write(ByteBuffer)} or
-	 *             {@link FileChannel#position(long)} does
+	 * @throws IOException when {@link FileChannel#write(ByteBuffer)} or
+	 *                     {@link FileChannel#position(long)} does
 	 */
-	private void writeLastID() throws IOException {
+	private void writeLastID(long lastID) throws IOException {
 		lastIDBuffer.clear();
 		lastIDBuffer.putLong(lastID);
 		lastIDBuffer.flip();
@@ -201,9 +215,8 @@ public final class StoreFileManager implements Closeable, Initializable {
 
 	/**
 	 * @return lastID saved in {@link #lastIDChannel}
-	 * @throws IOException
-	 *             when {@link FileChannel#position(long)} or
-	 *             {@link FileChannel#read(ByteBuffer)} does
+	 * @throws IOException when {@link FileChannel#position(long)} or
+	 *                     {@link FileChannel#read(ByteBuffer)} does
 	 */
 	private long readLastID() throws IOException {
 		if (getLastIDFilePath().toFile().length() < Long.BYTES)
@@ -224,10 +237,9 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 * 
 	 * @param storeLocation
 	 * @param buffer
-	 * @throws IOException
-	 *             when
-	 *             {@link #writeComplete(FileChannel, long, long, ReadableBuffer)}
-	 *             does
+	 * @throws IOException when
+	 *                     {@link #writeComplete(FileChannel, long, long, ReadableBuffer)}
+	 *                     does
 	 */
 	public void writeData(LongInterval storeLocation, ReadableBuffer buffer) throws IOException {
 		assert (!isClosed());
@@ -240,10 +252,9 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 * 
 	 * @param index
 	 * @param buffer
-	 * @throws IOException
-	 *             when
-	 *             {@link #writeComplete(FileChannel, long, long, ReadableBuffer)}
-	 *             does
+	 * @throws IOException when
+	 *                     {@link #writeComplete(FileChannel, long, long, ReadableBuffer)}
+	 *                     does
 	 */
 	public void writeDescription(long index, ReadableBuffer buffer) throws IOException {
 		assert (!isClosed());
@@ -256,9 +267,8 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 * clears the description of the entry given by the index
 	 * 
 	 * @param index
-	 * @throws IOException
-	 *             when {@link FileChannel#position(long)} or
-	 *             {@link FileChannel#write(ByteBuffer)} does
+	 * @throws IOException when {@link FileChannel#position(long)} or
+	 *                     {@link FileChannel#write(ByteBuffer)} does
 	 */
 	public void clearDescription(long index) throws IOException {
 		assert (!isClosed());
@@ -276,9 +286,8 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 * 
 	 * @param storeLocation
 	 * @param buffer
-	 * @throws IOException
-	 *             when {@link FileChannel#position(long)} or
-	 *             {@link FileChannel#read(ByteBuffer)} does
+	 * @throws IOException when {@link FileChannel#position(long)} or
+	 *                     {@link FileChannel#read(ByteBuffer)} does
 	 */
 	public void readData(LongInterval storeLocation, WritableBuffer buffer) throws IOException {
 		assert (!isClosed());
@@ -299,20 +308,17 @@ public final class StoreFileManager implements Closeable, Initializable {
 	/**
 	 * @param storeLocation
 	 * @return new {@link StoreItemDescription} given by the storeLocation
-	 * @throws IOException
-	 *             when {@link #writeLastID()} does
+	 * @throws IOException when {@link #writeLastID()} does
 	 */
-	public StoreItemDescription createNewStoreCacheEntryDescription(LongInterval storeLocation)
-			throws IOException {
+	public StoreItemDescription createNewStoreCacheEntryDescription(LongInterval storeLocation) throws IOException {
 		assert (!isClosed());
 		assert (isInitialized());
-		long id = lastID++;
+		long id = fetchID();
 		long index;
 		if (emptyStoreItemDescriptionIndexSet.isEmpty())
 			index = id;
 		else
 			index = emptyStoreItemDescriptionIndexSet.pollFirst();
-		writeLastID();
 		return new StoreItemDescription(storeLocation, id, index);
 	}
 
@@ -321,8 +327,7 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 * 
 	 * @param storeBuffer
 	 * @return initial {@link StoreItemDescription}s
-	 * @throws IOException
-	 *             when {@link FileChannel#read(ByteBuffer)} does
+	 * @throws IOException when {@link FileChannel#read(ByteBuffer)} does
 	 */
 	public Set<StoreItemDescription> initialize(StoreBuffer storeBuffer) throws IOException {
 
@@ -388,6 +393,7 @@ public final class StoreFileManager implements Closeable, Initializable {
 		dataChannel.close();
 		descriptionChannel.force(true);
 		descriptionChannel.close();
+		writeLastID(idBegin);
 		lastIDChannel.force(true);
 		lastIDChannel.close();
 	}
@@ -434,8 +440,7 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 * truncates the data file to size
 	 * 
 	 * @param size
-	 * @throws IOException
-	 *             when {@link FileChannel#truncate(long)} does
+	 * @throws IOException when {@link FileChannel#truncate(long)} does
 	 */
 	public void setDataFileSize(long size) throws IOException {
 		assert (!isClosed());
@@ -447,8 +452,7 @@ public final class StoreFileManager implements Closeable, Initializable {
 	/**
 	 * trims to description file to a minimal size
 	 * 
-	 * @throws IOException
-	 *             when {@link FileChannel#truncate(long)} does
+	 * @throws IOException when {@link FileChannel#truncate(long)} does
 	 */
 	public void trimDescriptionFileSize() throws IOException {
 		assert (!isClosed());

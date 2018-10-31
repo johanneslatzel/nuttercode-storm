@@ -3,7 +3,9 @@ package de.nuttercode.storm;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import de.nuttercode.storm.core.StoreFileManager;
 import de.nuttercode.util.assurance.Assurance;
+import de.nuttercode.util.assurance.InLongRange;
 import de.nuttercode.util.assurance.NotEmpty;
 import de.nuttercode.util.assurance.NotNull;
 import de.nuttercode.util.assurance.Positive;
@@ -63,6 +65,11 @@ public final class StoreConfiguration {
 	private final Path basePath;
 
 	/**
+	 * {@link StoreFileManager} will buffer up to idIncrease ids
+	 */
+	private int idIncrease;
+
+	/**
 	 * copy-constructor
 	 * 
 	 * @param configuration
@@ -75,18 +82,17 @@ public final class StoreConfiguration {
 		byteBufferSize = configuration.getByteBufferSize();
 		minimumDataFileSize = configuration.getMinimumDataFileSize();
 		idFileSuffix = configuration.getIDFileSuffix();
+		idIncrease = configuration.getIdIncrease();
 	}
 
 	/**
 	 * default initializes all attributes other than {@link #storeName} and
 	 * {@link #basePath}
 	 * 
-	 * @param storeName
-	 *            the unique name of the {@link de.nuttercode.store.Store} within
-	 *            the {@link #basePath}a
-	 * @param basePath
-	 *            the root directory path in which all store-files will be saved and
-	 *            loaded
+	 * @param storeName the unique name of the {@link de.nuttercode.store.Store}
+	 *                  within the {@link #basePath}a
+	 * @param basePath  the root directory path in which all store-files will be
+	 *                  saved and loaded
 	 */
 	public StoreConfiguration(@NotEmpty String storeName, @NotNull Path basePath) {
 		Assurance.assureNotEmpty(storeName);
@@ -98,6 +104,7 @@ public final class StoreConfiguration {
 		idFileSuffix = "id";
 		byteBufferSize = 512;
 		minimumDataFileSize = 1024;
+		idIncrease = 500;
 	}
 
 	/**
@@ -157,11 +164,17 @@ public final class StoreConfiguration {
 	}
 
 	/**
+	 * @return {@link #idIncrease}
+	 */
+	public int getIdIncrease() {
+		return idIncrease;
+	}
+
+	/**
 	 * sets {@link #dataFileSuffix}
 	 * 
 	 * @param dataFileSuffix
-	 * @throws IllegalArgumentException
-	 *             if dataFileSuffix is empty or null
+	 * @throws IllegalArgumentException if dataFileSuffix is empty or null
 	 */
 	public void setDataFileSuffix(@NotEmpty String dataFileSuffix) {
 		Assurance.assureNotEmpty(dataFileSuffix);
@@ -172,8 +185,7 @@ public final class StoreConfiguration {
 	 * sets {@link #descriptionFileSuffix}
 	 * 
 	 * @param descriptionFileSuffix
-	 * @throws IllegalArgumentException
-	 *             if descriptionFileSuffix is empty or null
+	 * @throws IllegalArgumentException if descriptionFileSuffix is empty or null
 	 */
 	public void setDescriptionFileSuffix(@NotEmpty String descriptionFileSuffix) {
 		Assurance.assureNotEmpty(dataFileSuffix);
@@ -184,8 +196,7 @@ public final class StoreConfiguration {
 	 * sets {@link #byteBufferSize}
 	 * 
 	 * @param byteBufferSize
-	 * @throws IllegalArgumentException
-	 *             if byteBufferSize <= 0
+	 * @throws IllegalArgumentException if byteBufferSize <= 0
 	 */
 	public void setByteBufferSize(@Positive int byteBufferSize) {
 		Assurance.assurePositive(byteBufferSize);
@@ -196,8 +207,7 @@ public final class StoreConfiguration {
 	 * sets {@link #minimumDataFileSize}
 	 * 
 	 * @param minimumDataFileSize
-	 * @throws IllegalArgumentException
-	 *             if minimumDataFileSize <= 0
+	 * @throws IllegalArgumentException if minimumDataFileSize <= 0
 	 */
 	public void setMinimumDataFileSize(@Positive int minimumDataFileSize) {
 		Assurance.assurePositive(minimumDataFileSize);
@@ -208,12 +218,16 @@ public final class StoreConfiguration {
 	 * sets {@link #idFileSuffix}
 	 * 
 	 * @param idFileSuffix
-	 * @throws IllegalArgumentException
-	 *             if {@link #idFileSuffix} is empty or null
+	 * @throws IllegalArgumentException if {@link #idFileSuffix} is empty or null
 	 */
 	public void setIDFileSuffix(@NotEmpty String idFileSuffix) {
 		Assurance.assureNotEmpty(idFileSuffix);
 		this.idFileSuffix = idFileSuffix;
+	}
+	
+	public void setIdIncrease(@InLongRange(begin=1, end=Integer.MAX_VALUE) int idIncrease) {
+		Assurance.assureBoundaries(idIncrease, 1, Integer.MAX_VALUE);
+		this.idIncrease = idIncrease;
 	}
 
 }
