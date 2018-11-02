@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * 
@@ -15,9 +16,8 @@ import java.util.function.Predicate;
  * 
  * @author Johannes B. Latzel
  *
- * @param <T>
- *            the type of the content of items in the
- *            {@link de.nuttercode.storm.Store}
+ * @param <T> the type of the content of items in the
+ *        {@link de.nuttercode.storm.Store}
  */
 public class StoreQuery<T> {
 
@@ -39,8 +39,7 @@ public class StoreQuery<T> {
 	 * tests if h satisfies the filterList
 	 * 
 	 * @param filterList
-	 * @param h
-	 *            some element
+	 * @param h          some element
 	 * @return true if h satisfies the filterList
 	 */
 	private <H> boolean evaluateH(List<Predicate<H>> filterList, H h) {
@@ -85,8 +84,7 @@ public class StoreQuery<T> {
 	 * terminal operation - returns the first item which matches all filters
 	 * 
 	 * @return first item which matches all filters
-	 * @throws IOException
-	 *             when thrown by the {@link de.nuttercode.storm.Store}
+	 * @throws IOException when thrown by the {@link de.nuttercode.storm.Store}
 	 */
 	public T first() throws IOException {
 		T content;
@@ -104,8 +102,7 @@ public class StoreQuery<T> {
 	 * terminal operation - returns the last item which matches all filters
 	 * 
 	 * @return last item which matches all filters
-	 * @throws IOException
-	 *             when thrown by the {@link de.nuttercode.storm.Store}
+	 * @throws IOException when thrown by the {@link de.nuttercode.storm.Store}
 	 */
 	public T last() throws IOException {
 		T content;
@@ -124,8 +121,7 @@ public class StoreQuery<T> {
 	 * terminal operation - returns all items which match all filters
 	 * 
 	 * @return all items which match all filters
-	 * @throws IOException
-	 *             when thrown by the {@link de.nuttercode.storm.Store}
+	 * @throws IOException when thrown by the {@link de.nuttercode.storm.Store}
 	 */
 	public Set<StoreItem<T>> all() throws IOException {
 		Set<StoreItem<T>> itemSet = new HashSet<>();
@@ -138,6 +134,14 @@ public class StoreQuery<T> {
 			}
 		}
 		return itemSet;
+	}
+
+	/**
+	 * @return {@link #all()} mapped to its {@link StoreItem#getContent()}
+	 * @throws IOException when {@link #all()} does
+	 */
+	public Set<T> allContent() throws IOException {
+		return all().parallelStream().map(i -> i.getContent()).collect(Collectors.toSet());
 	}
 
 }
