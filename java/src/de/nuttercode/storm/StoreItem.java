@@ -6,8 +6,7 @@ package de.nuttercode.storm;
  * 
  * @author Johannes B. Latzel
  *
- * @param <T>
- *            type of the content
+ * @param <T> type of the content
  */
 public final class StoreItem<T> {
 
@@ -28,14 +27,14 @@ public final class StoreItem<T> {
 	}
 
 	/**
-	 * @return {@link #storeID}
+	 * @return the id of the item in the {@link de.nuttercode.storm.Store}
 	 */
 	public long getID() {
 		return storeID;
 	}
 
 	/**
-	 * @return {@link #content}
+	 * @return the content of the item
 	 */
 	public T getContent() {
 		return content;
@@ -43,7 +42,7 @@ public final class StoreItem<T> {
 
 	@Override
 	public String toString() {
-		return "StoreItem [storeID=" + getID() + ", content=" + getContent() + "]";
+		return "StoreItem [content=" + content + ", storeID=" + storeID + "]";
 	}
 
 }
