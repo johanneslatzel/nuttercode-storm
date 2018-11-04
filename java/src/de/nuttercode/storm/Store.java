@@ -94,6 +94,8 @@ public class Store<T> implements Closeable {
 	private void cache(long storeID) throws IOException {
 		if (!contains(storeID))
 			throw new NoSuchElementException();
+		if (itemCache.contains(storeID))
+			return;
 		storeFileManager.readData(getStoreLocation(storeID), storeBuffer);
 		storeBuffer.setMode(BufferMode.Read);
 		setContent(storeID, objectTransformer.getFrom(readableStoreBufferWrapper));
