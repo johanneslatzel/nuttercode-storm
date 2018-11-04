@@ -31,8 +31,8 @@ public class StoreQuery<T> {
 		assert (storeIDSet != null);
 		this.storeIDSet = storeIDSet;
 		this.store = store;
-		storeIDFilterList = new ArrayList<>(5);
-		contentFilterList = new ArrayList<>(5);
+		storeIDFilterList = new ArrayList<>();
+		contentFilterList = new ArrayList<>();
 	}
 
 	/**
