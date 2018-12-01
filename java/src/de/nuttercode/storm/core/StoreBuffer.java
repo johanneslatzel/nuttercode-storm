@@ -38,7 +38,7 @@ public final class StoreBuffer extends DynamicBuffer {
 	public StoreBuffer() {
 		super(0, true);
 		crcCalculator = new CRC32();
-		crcBuffer = ByteBuffer.allocate(Long.BYTES * 7);
+		crcBuffer = ByteBuffer.allocate(Long.BYTES * 7 + Integer.BYTES);
 	}
 
 	/**
@@ -96,6 +96,7 @@ public final class StoreBuffer extends DynamicBuffer {
 	private int getCrcValue() {
 		crcBuffer.flip();
 		crcCalculator.update(crcBuffer);
+		crcBuffer.rewind();
 		return (int) crcCalculator.getValue();
 	}
 
