@@ -23,8 +23,6 @@ import de.nuttercode.util.buffer.transformer.ObjectTransformer;
 import de.nuttercode.util.buffer.ReadableBuffer;
 
 /**
- * TODO: documentation
- * 
  * @author Johannes B. Latzel
  *
  * @param <T> type of objects which will be stored in this store
@@ -71,15 +69,15 @@ public class Store<T> implements Closeable {
 	}
 
 	private void assureOpen() {
-		if (isClosed())
+		if (isClosed)
 			throw new IllegalStateException("the store is closed");
 	}
 
 	private void saveDescription(StoreItemDescription description) throws IOException {
+		storeBuffer.setMode(BufferMode.Write);
 		storeBuffer.putStoreItemDescription(description);
 		storeBuffer.setMode(BufferMode.Read);
 		storeFileManager.writeDescription(description.getIndex(), storeBuffer);
-		storeBuffer.setMode(BufferMode.Write);
 	}
 
 	private void clearDescription(long index) throws IOException {
@@ -96,10 +94,10 @@ public class Store<T> implements Closeable {
 			throw new NoSuchElementException();
 		if (itemCache.contains(storeID))
 			return;
+		storeBuffer.setMode(BufferMode.Write);
 		storeFileManager.readData(getStoreLocation(storeID), storeBuffer);
 		storeBuffer.setMode(BufferMode.Read);
 		setContent(storeID, objectTransformer.getFrom(readableStoreBufferWrapper));
-		storeBuffer.setMode(BufferMode.Write);
 	}
 
 	private LongInterval getStoreLocation(long storeID) {
@@ -122,11 +120,11 @@ public class Store<T> implements Closeable {
 		assureOpen();
 		if (!contains(storeID))
 			throw new NoSuchElementException();
+		storeBuffer.setMode(BufferMode.Write);
 		objectTransformer.putInto(content, writableStoreBufferWrapper);
 		storeBuffer.setMode(BufferMode.Read);
 		LongInterval storeLocation = storeLocationManager.getFreeLocation(storeBuffer.transferableData());
 		storeFileManager.writeData(storeLocation, storeBuffer);
-		storeBuffer.setMode(BufferMode.Write);
 		StoreItemDescription storeItemDescription = new StoreItemDescription(storeLocation, storeID,
 				getStoreIndex(storeID));
 		storeLocationManager.addFreeLocation(getStoreLocation(storeID));
@@ -146,11 +144,11 @@ public class Store<T> implements Closeable {
 		assureOpen();
 		StoreItemDescription storeItemDescription;
 		LongInterval storeLocation;
+		storeBuffer.setMode(BufferMode.Write);
 		objectTransformer.putInto(content, writableStoreBufferWrapper);
 		storeBuffer.setMode(BufferMode.Read);
 		storeLocation = storeLocationManager.getFreeLocation(storeBuffer.transferableData());
 		storeFileManager.writeData(storeLocation, storeBuffer);
-		storeBuffer.setMode(BufferMode.Write);
 		storeItemDescription = storeFileManager.createNewStoreCacheEntryDescription(storeLocation);
 		descriptionMap.put(storeItemDescription.getStoreID(), storeItemDescription);
 		saveDescription(storeItemDescription);
@@ -158,6 +156,11 @@ public class Store<T> implements Closeable {
 		return new StoreItem<>(storeItemDescription.getStoreID(), content);
 	}
 
+	/**
+	 * 
+	 * @param storeID
+	 * @throws IOException
+	 */
 	public final void delete(long storeID) throws IOException {
 		assureOpen();
 		if (!contains(storeID))
@@ -171,43 +174,64 @@ public class Store<T> implements Closeable {
 		storeLocationManager.addFreeLocation(storeLocation);
 	}
 
-	public final boolean isClosed() {
-		return isClosed;
-	}
-
 	@Override
 	public final void close() throws IOException {
-		if (isClosed())
+		if (isClosed)
 			return;
 		isClosed = true;
 		storeFileManager.close();
 	}
 
+	/**
+	 * @return total size of DAF in bytes
+	 */
 	public final long getTotalSpace() {
 		return storeFileManager.getTotalSpace();
 	}
 
+	/**
+	 * @return unallocated space in DAF in bytes
+	 */
 	public final long getFreeSpace() {
 		return storeLocationManager.getFreeSpace();
 	}
 
+	/**
+	 * @return difference of {@link #getTotalSpace()} - {@link #getFreeSpace()}
+	 */
 	public final long getUsedSpace() {
 		return getTotalSpace() - getFreeSpace();
 	}
 
+	/**
+	 * rate of free bytes over free locations. measure of fragmentation.
+	 * 
+	 * @return 0 if no free locations are left or the rate of
+	 *         {@link #getFreeSpace()} over the number of free locations
+	 */
 	public final double getFreeLocationFractionRate() {
 		int count = storeLocationManager.getFreeLocationCount();
 		if (count == 0)
-			return Double.MAX_VALUE;
+			return 0;
 		return getFreeSpace() / count;
 	}
 
+	/**
+	 * tries to trim the DEF and DAF and to merge free locations
+	 * 
+	 * @throws IOException when {@link StoreFileManager#trimDescriptionFileSize()},
+	 *                     {@link StoreLocationManager#mergeFreeLocations()}, or
+	 *                     {@link StoreLocationManager#trimDataFile()} does
+	 */
 	public final void organize() throws IOException {
 		storeFileManager.trimDescriptionFileSize();
 		storeLocationManager.mergeFreeLocations();
 		storeLocationManager.trimDataFile();
 	}
 
+	/**
+	 * @return unmodifiable set of ids of every object stored
+	 */
 	public final Set<Long> getIds() {
 		return Collections.unmodifiableSet(descriptionMap.keySet());
 	}

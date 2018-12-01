@@ -23,7 +23,7 @@ import de.nuttercode.util.buffer.DynamicBuffer;
 import de.nuttercode.util.buffer.ReadableBuffer;
 
 /**
- * manages the files related to a {@link Store}
+ * component of a {@link Store}. manages the files related to the {@link Store}.
  * 
  * @author Johannes B. Latzel
  *
@@ -31,22 +31,17 @@ import de.nuttercode.util.buffer.ReadableBuffer;
 public final class StoreFileManager implements Closeable, Initializable {
 
 	/**
-	 * directory in which all files related to the {@link Store} are saved
-	 */
-	private final Path storeDirectory;
-
-	/**
-	 * channel of the description file
+	 * channel of the description file (DEF)
 	 */
 	private final FileChannel descriptionChannel;
 
 	/**
-	 * channel of the last id file
+	 * channel of the last id file (LID)
 	 */
 	private final FileChannel lastIDChannel;
 
 	/**
-	 * description of the data file
+	 * description of the data file (DAF)
 	 */
 	private final FileChannel dataChannel;
 
@@ -56,7 +51,7 @@ public final class StoreFileManager implements Closeable, Initializable {
 	private boolean isClosed;
 
 	/**
-	 * configuration of the {@link Store}
+	 * a copy configuration of the {@link Store}
 	 */
 	private final StoreConfiguration storeConfiguration;
 
@@ -66,12 +61,12 @@ public final class StoreFileManager implements Closeable, Initializable {
 	private final ByteBuffer byteBuffer;
 
 	/**
-	 * clear buffer for clearing sections of the description file
+	 * clear buffer for clearing sections of the description file (DEF)
 	 */
 	private final ByteBuffer clearBuffer;
 
 	/**
-	 * all available indices for new {@link StoreItem}
+	 * all available indices needed for {@link StoreItem} creation
 	 */
 	private final TreeSet<Long> emptyStoreItemDescriptionIndexSet;
 
@@ -91,20 +86,27 @@ public final class StoreFileManager implements Closeable, Initializable {
 	private boolean isInitialized;
 
 	/**
-	 * begin id of available ids. all ids within [idBegin, idEnd] are available
+	 * begin id of available ids. all ids within [{@link #idBegin}, {@link #idEnd}]
+	 * are available
 	 */
 	private long idBegin;
 
 	/**
-	 * end id of available ids. all ids within [idBegin, idEnd] are available
+	 * end id of available ids. all ids within [{@link #idBegin}, {@link #idEnd}]
+	 * are available
 	 */
 	private long idEnd;
 
+	/**
+	 * called by {@link Store}. don't use this constructor manually.
+	 * 
+	 * @param storeConfiguration
+	 * @throws IOException
+	 */
 	public StoreFileManager(StoreConfiguration storeConfiguration) throws IOException {
 		assert (storeConfiguration != null);
-		this.storeDirectory = storeConfiguration.getStoreDirectory();
 		this.storeConfiguration = new StoreConfiguration(storeConfiguration);
-		File storeDirectoryFile = storeDirectory.toFile();
+		File storeDirectoryFile = storeConfiguration.getStoreDirectory().toFile();
 		if (!storeDirectoryFile.exists()) {
 			if (!storeDirectoryFile.mkdirs())
 				throw new IOException("can't create directories");
@@ -141,7 +143,7 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 * @return absolute path to the store directory
 	 */
 	private String getAbsoluteSD() {
-		return storeDirectory.toString();
+		return storeConfiguration.getStoreDirectory().toString();
 	}
 
 	/**
@@ -165,7 +167,7 @@ public final class StoreFileManager implements Closeable, Initializable {
 	 */
 	private Path getLastIDFilePath() {
 		return Paths.get(getAbsoluteSD(),
-				storeConfiguration.getStoreName() + '.' + storeConfiguration.getIDFileSuffix());
+				storeConfiguration.getStoreName() + '.' + storeConfiguration.getIdFileSuffix());
 	}
 
 	/**
@@ -316,7 +318,7 @@ public final class StoreFileManager implements Closeable, Initializable {
 		long id = fetchID();
 		long index;
 		if (emptyStoreItemDescriptionIndexSet.isEmpty())
-			index = id;
+			index = descriptionChannel.size() / StoreBuffer.BINARY_SIZE;
 		else
 			index = emptyStoreItemDescriptionIndexSet.pollFirst();
 		return new StoreItemDescription(storeLocation, id, index);

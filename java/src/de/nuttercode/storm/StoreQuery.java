@@ -10,9 +10,12 @@ import java.util.stream.Collectors;
 
 /**
  * 
- * This class represents a query for items in a
- * {@link de.nuttercode.storm.Store}. The query can be run as often as needed.
- * Changes to the query can be made by calling the intermediate functions.
+ * This class represents a query for {@link StoreItem}s in a
+ * {@link de.nuttercode.storm.Store}. A query can be run as often as needed.
+ * Changes to the {@link Store} will not be reflected in this query. This means
+ * especially that changes to the {@link Store} may render this query invalid.
+ * Changes to the query can be made by calling the intermediate functions. This
+ * class is not thread-safe.
  * 
  * @author Johannes B. Latzel
  *
@@ -21,11 +24,33 @@ import java.util.stream.Collectors;
  */
 public class StoreQuery<T> {
 
+	/**
+	 * all filters on {@link StoreItem#getID()}
+	 */
 	private final List<Predicate<Long>> storeIDFilterList;
+
+	/**
+	 * all filters on {@link StoreItem#getContent()}
+	 */
 	private final List<Predicate<T>> contentFilterList;
+
+	/**
+	 * the {@link Store} on which this query will be run
+	 */
 	private final Store<T> store;
+
+	/**
+	 * 
+	 */
 	private final Set<Long> storeIDSet;
 
+	/**
+	 * used by {@link Store#query()}. don't use this constructor manually. always
+	 * call {@link Store#query()} instead.
+	 * 
+	 * @param store
+	 * @param storeIDSet
+	 */
 	public StoreQuery(Store<T> store, Set<Long> storeIDSet) {
 		assert (store != null);
 		assert (storeIDSet != null);
@@ -50,10 +75,18 @@ public class StoreQuery<T> {
 		return test;
 	}
 
+	/**
+	 * @param storeID
+	 * @return true if storeID satisfies the #storeIDFilterList
+	 */
 	private boolean evaluateStoreID(long storeID) {
 		return evaluateH(storeIDFilterList, storeID);
 	}
 
+	/**
+	 * @param content
+	 * @return true if content satisfies the #contentFilterList
+	 */
 	private boolean evaluateContent(T content) {
 		return evaluateH(contentFilterList, content);
 	}
@@ -81,9 +114,9 @@ public class StoreQuery<T> {
 	}
 
 	/**
-	 * terminal operation - returns the first item which matches all filters
+	 * terminal operation
 	 * 
-	 * @return first item which matches all filters
+	 * @return first item which matches all filters or null if none matches
 	 * @throws IOException when thrown by the {@link de.nuttercode.storm.Store}
 	 */
 	public T first() throws IOException {
@@ -99,9 +132,9 @@ public class StoreQuery<T> {
 	}
 
 	/**
-	 * terminal operation - returns the last item which matches all filters
+	 * terminal operation
 	 * 
-	 * @return last item which matches all filters
+	 * @return last item which matches all filters or null if none matches
 	 * @throws IOException when thrown by the {@link de.nuttercode.storm.Store}
 	 */
 	public T last() throws IOException {
@@ -118,9 +151,9 @@ public class StoreQuery<T> {
 	}
 
 	/**
-	 * terminal operation - returns all items which match all filters
+	 * terminal operation
 	 * 
-	 * @return all items which match all filters
+	 * @return a {@link Set} of all items which match all filters
 	 * @throws IOException when thrown by the {@link de.nuttercode.storm.Store}
 	 */
 	public Set<StoreItem<T>> all() throws IOException {
@@ -137,6 +170,8 @@ public class StoreQuery<T> {
 	}
 
 	/**
+	 * terminal operation
+	 * 
 	 * @return {@link #all()} mapped to its {@link StoreItem#getContent()}
 	 * @throws IOException when {@link #all()} does
 	 */

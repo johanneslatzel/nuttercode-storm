@@ -1,9 +1,11 @@
 package de.nuttercode.storm.core;
 
+import de.nuttercode.storm.Store;
+import de.nuttercode.storm.StoreItem;
 import de.nuttercode.util.LongInterval;
 
 /**
- * describes a StoreCacheEntry
+ * describes a {@link StoreItem}
  * 
  * @author Johannes B. Latzel
  *
@@ -25,6 +27,14 @@ public final class StoreItemDescription {
 	 */
 	private final long index;
 
+	/**
+	 * called by {@link Store} and its components. don't call this constructor.
+	 * manually.
+	 * 
+	 * @param storeLocation
+	 * @param storeID
+	 * @param index
+	 */
 	public StoreItemDescription(LongInterval storeLocation, long storeID, long index) {
 		assert (storeLocation != null);
 		assert (index >= 0);
@@ -33,14 +43,23 @@ public final class StoreItemDescription {
 		this.index = index;
 	}
 
+	/**
+	 * @return id of the StoreItem
+	 */
 	public long getStoreID() {
 		return storeID;
 	}
 
+	/**
+	 * @return location of the {@link StoreItem} in the {@link Store}
+	 */
 	public LongInterval getStoreLocation() {
 		return storeLocation;
 	}
 
+	/**
+	 * @return index in the {@link StoreItem} in the StoreItemTable
+	 */
 	public long getIndex() {
 		return index;
 	}
