@@ -1,12 +1,12 @@
 package de.nuttercode.storm.core;
 
+import de.nuttercode.util.LongInterval;
 import de.nuttercode.util.buffer.DynamicBuffer;
 
 import java.nio.ByteBuffer;
 import java.util.zip.CRC32;
 
 import de.nuttercode.storm.Store;
-import de.nuttercode.util.LongInterval;
 
 /**
  * a {@link util.buffer.DynamicBuffer} extension. can save and restore

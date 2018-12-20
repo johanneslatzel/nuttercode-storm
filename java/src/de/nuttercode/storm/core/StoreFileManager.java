@@ -12,13 +12,13 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import de.nuttercode.util.buffer.WritableBuffer;
-import de.nuttercode.util.LongInterval;
 import de.nuttercode.util.buffer.BufferMode;
 import de.nuttercode.storm.Store;
 import de.nuttercode.storm.StoreConfiguration;
 import de.nuttercode.storm.StoreItem;
 import de.nuttercode.util.Closeable;
 import de.nuttercode.util.Initializable;
+import de.nuttercode.util.LongInterval;
 import de.nuttercode.util.buffer.DynamicBuffer;
 import de.nuttercode.util.buffer.ReadableBuffer;
 
