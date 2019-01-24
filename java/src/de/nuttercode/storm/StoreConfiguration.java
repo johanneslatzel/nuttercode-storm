@@ -1,11 +1,12 @@
 package de.nuttercode.storm;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import de.nuttercode.storm.core.StoreFileManager;
 import de.nuttercode.util.assurance.Assurance;
+import de.nuttercode.util.assurance.InLongRange;
 import de.nuttercode.util.assurance.NotEmpty;
 import de.nuttercode.util.assurance.NotNegative;
 import de.nuttercode.util.assurance.NotNull;
@@ -29,18 +30,6 @@ public final class StoreConfiguration {
 	 * similar. must not be empty or null.
 	 */
 	private String dataFileSuffix;
-
-	/**
-	 * suffix of the description files - should be a short acronym like "def" or
-	 * something similar. must not be empty or null.
-	 */
-	private String descriptionFileSuffix;
-
-	/**
-	 * suffix of the id file - should be a short acronym like "id" or something
-	 * similar. must not be empty or null.
-	 */
-	private String idFileSuffix;
 
 	/**
 	 * the size of {@link java.nio.ByteBuffer}s used throughout the library. must be
@@ -67,24 +56,39 @@ public final class StoreConfiguration {
 	private final Path basePath;
 
 	/**
-	 * the number of ids {@link StoreFileManager} will buffer at most
+	 * minimum size the data file will be increased when an increase is performed
 	 */
-	private int idIncrease;
+	private int dataFileIncrease;
+
+	/**
+	 * first id used in the store
+	 */
+	private long startID;
 
 	/**
 	 * copy-constructor
 	 * 
 	 * @param configuration
 	 */
-	public StoreConfiguration(StoreConfiguration configuration) {
+	public StoreConfiguration(@NotNull StoreConfiguration configuration) {
+		Assurance.assureNotNull(configuration);
 		storeName = configuration.getStoreName();
 		basePath = configuration.getBasePath();
-		dataFileSuffix = configuration.getDataFileSuffix();
-		descriptionFileSuffix = configuration.getDescriptionFileSuffix();
-		byteBufferSize = configuration.getByteBufferSize();
-		minimumDataFileSize = configuration.getMinimumDataFileSize();
-		idFileSuffix = configuration.getIdFileSuffix();
-		idIncrease = configuration.getIdIncrease();
+		setDataFileSuffix(configuration.getDataFileSuffix());
+		setByteBufferSize(configuration.getByteBufferSize());
+		setMinimumDataFileSize(configuration.getMinimumDataFileSize());
+		setDataFileIncrease(configuration.getDataFileIncrease());
+		setStartID(configuration.getStartID());
+	}
+
+	/**
+	 * same as {@link #StoreConfiguration(String, Path)
+	 * StoreConfiguration(storeName, Paths.get(System.getProperty("user.dir")))}
+	 * 
+	 * @param storeName
+	 */
+	public StoreConfiguration(@NotEmpty String storeName) {
+		this(storeName, Paths.get(System.getProperty("user.dir")));
 	}
 
 	/**
@@ -102,11 +106,10 @@ public final class StoreConfiguration {
 		this.storeName = storeName;
 		this.basePath = basePath;
 		dataFileSuffix = "daf";
-		descriptionFileSuffix = "def";
-		idFileSuffix = "id";
-		byteBufferSize = 512;
+		byteBufferSize = 8192;
 		minimumDataFileSize = 1024;
-		idIncrease = 500;
+		setDataFileIncrease(512);
+		setStartID(500);
 	}
 
 	/**
@@ -115,14 +118,6 @@ public final class StoreConfiguration {
 	 */
 	public @NotEmpty String getDataFileSuffix() {
 		return dataFileSuffix;
-	}
-
-	/**
-	 * @return suffix of the description files
-	 * 
-	 */
-	public String getDescriptionFileSuffix() {
-		return descriptionFileSuffix;
 	}
 
 	/**
@@ -156,28 +151,11 @@ public final class StoreConfiguration {
 	}
 
 	/**
-	 * @return the unique name of the {@link Store} within the
-	 *         {@link #getBasePath()} directory.
+	 * @return the data file (DAF)
 	 * 
 	 */
-	public @NotNull Path getStoreDirectory() {
-		return Paths.get(getBasePath().toString(), getStoreName());
-	}
-
-	/**
-	 * @return suffix of the id file
-	 * 
-	 */
-	public @NotEmpty String getIdFileSuffix() {
-		return idFileSuffix;
-	}
-
-	/**
-	 * @return number of ids {@link StoreFileManager} will buffer at most
-	 * 
-	 */
-	public int getIdIncrease() {
-		return idIncrease;
+	public @NotNull File getDataFile() {
+		return new File(getBasePath().toString() + File.separatorChar + getStoreName() + "." + getDataFileSuffix());
 	}
 
 	/**
@@ -190,18 +168,6 @@ public final class StoreConfiguration {
 	public void setDataFileSuffix(@NotEmpty String dataFileSuffix) {
 		Assurance.assureNotEmpty(dataFileSuffix);
 		this.dataFileSuffix = dataFileSuffix;
-	}
-
-	/**
-	 * suffix of the description files. should be a short acronym like "def"
-	 * orsomething similar.
-	 * 
-	 * @param descriptionFileSuffix
-	 * @throws IllegalArgumentException if descriptionFileSuffix is empty or null
-	 */
-	public void setDescriptionFileSuffix(@NotEmpty String descriptionFileSuffix) {
-		Assurance.assureNotEmpty(dataFileSuffix);
-		this.descriptionFileSuffix = descriptionFileSuffix;
 	}
 
 	/**
@@ -221,31 +187,47 @@ public final class StoreConfiguration {
 	 * @param minimumDataFileSize
 	 * @throws IllegalArgumentException if minimumDataFileSize <= 0
 	 */
-	public void setMinimumDataFileSize(@Positive int minimumDataFileSize) {
+	public void setMinimumDataFileSize(@Positive long minimumDataFileSize) {
 		Assurance.assurePositive(minimumDataFileSize);
 		this.minimumDataFileSize = minimumDataFileSize;
 	}
 
 	/**
-	 * sets suffix of the id file. should be a short acronym like "id" or something
-	 * similar
+	 * @return minimum size the data file will be increased when an increase is
+	 *         performed
 	 * 
-	 * @param idFileSuffix
-	 * @throws IllegalArgumentException if {@link #idFileSuffix} is empty or null
 	 */
-	public void setIdFileSuffix(@NotEmpty String idFileSuffix) {
-		Assurance.assureNotEmpty(idFileSuffix);
-		this.idFileSuffix = idFileSuffix;
+	public int getDataFileIncrease() {
+		return dataFileIncrease;
 	}
 
 	/**
-	 * sets the number of ids {@link StoreFileManager} will buffer at most
+	 * set minimum size the data file will be increased when an increase is
+	 * performed
 	 * 
-	 * @param idIncrease
+	 * @param dataFileIncrease
 	 */
-	public void setIdIncrease(@Positive int idIncrease) {
-		Assurance.assurePositive(idIncrease);
-		this.idIncrease = idIncrease;
+	public void setDataFileIncrease(@NotNegative int dataFileIncrease) {
+		Assurance.assureNotNegative(dataFileIncrease);
+		this.dataFileIncrease = dataFileIncrease;
+	}
+
+	/**
+	 * @return first id used in the store
+	 */
+	public long getStartID() {
+		return startID;
+	}
+
+	/**
+	 * sets the first id used in the store. all other ids will be in the range of
+	 * [Long.MIN_VALUE, Long.MAX_VALUE] \ [0, startID)
+	 * 
+	 * @param startID
+	 */
+	public void setStartID(@InLongRange(begin = DataFile.MIN_ID, end = DataFile.MAX_ID) long startID) {
+		Assurance.assureBoundaries(startID, DataFile.MIN_ID, DataFile.MAX_ID);
+		this.startID = startID;
 	}
 
 }

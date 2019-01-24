@@ -6,7 +6,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /**
  * 
@@ -14,8 +13,7 @@ import java.util.stream.Collectors;
  * {@link de.nuttercode.storm.Store}. A query can be run as often as needed.
  * Changes to the {@link Store} will not be reflected in this query. This means
  * especially that changes to the {@link Store} may render this query invalid.
- * Changes to the query can be made by calling the intermediate functions. This
- * class is not thread-safe.
+ * Changes to the query can be made by calling the intermediate functions.
  * 
  * @author Johannes B. Latzel
  *
@@ -25,7 +23,7 @@ import java.util.stream.Collectors;
 public class StoreQuery<T> {
 
 	/**
-	 * all filters on {@link StoreItem#getID()}
+	 * all filters on {@link StoreItem#getId()}
 	 */
 	private final List<Predicate<Long>> storeIDFilterList;
 
@@ -45,13 +43,12 @@ public class StoreQuery<T> {
 	private final Set<Long> storeIDSet;
 
 	/**
-	 * used by {@link Store#query()}. don't use this constructor manually. always
-	 * call {@link Store#query()} instead.
+	 * called by {@link Store#query()}
 	 * 
 	 * @param store
 	 * @param storeIDSet
 	 */
-	public StoreQuery(Store<T> store, Set<Long> storeIDSet) {
+	StoreQuery(Store<T> store, Set<Long> storeIDSet) {
 		assert (store != null);
 		assert (storeIDSet != null);
 		this.storeIDSet = storeIDSet;
@@ -176,7 +173,10 @@ public class StoreQuery<T> {
 	 * @throws IOException when {@link #all()} does
 	 */
 	public Set<T> allContent() throws IOException {
-		return all().parallelStream().map(i -> i.getContent()).collect(Collectors.toSet());
+		Set<T> set = new HashSet<>();
+		for (StoreItem<T> item : all())
+			set.add(item.getContent());
+		return set;
 	}
 
 }
