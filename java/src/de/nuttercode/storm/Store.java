@@ -3,19 +3,10 @@ package de.nuttercode.storm;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 
-import de.nuttercode.util.buffer.WritableBuffer;
-import de.nuttercode.util.cache.Cache;
-import de.nuttercode.util.cache.WeakCache;
 import de.nuttercode.util.assurance.Assurance;
 import de.nuttercode.util.assurance.NotNull;
-import de.nuttercode.util.buffer.DataQueue;
-import de.nuttercode.util.buffer.ReadableBuffer;
 
 /**
  * A {@link Store} saves objects (as items with an unique id) into a persistent
@@ -35,9 +26,9 @@ import de.nuttercode.util.buffer.ReadableBuffer;
  * 
  * @author Johannes B. Latzel
  *
- * @param <T> type of objects which will be stored in this store
+ * @param <T> type of objects which will be stored in this store (content type)
  */
-public class Store<T> implements Closeable {
+public interface Store<T> extends Closeable {
 
 	/**
 	 * opens a {@link Store} of an serializable class.
@@ -66,137 +57,29 @@ public class Store<T> implements Closeable {
 			@NotNull ObjectTransformer<T> transformer) throws IOException {
 		Assurance.assureNotNull(configuration);
 		Assurance.assureNotNull(transformer);
-		return new Store<>(configuration, transformer);
-	}
-
-	/**
-	 * readable view of the same buffer {@link #writableBuffer} uses
-	 */
-	private final ReadableBuffer readableBuffer;
-
-	/**
-	 * writable view of the same buffer {@link #readableBuffer} uses
-	 */
-	private final WritableBuffer writableBuffer;
-
-	/**
-	 * transforms items of this store into binary format and vice versa
-	 */
-	private final ObjectTransformer<T> objectTransformer;
-
-	/**
-	 * cache of items stored in this store
-	 */
-	private final Cache<Long, T> itemCache;
-
-	/**
-	 * complete map of all ids of items stored in this store mapped to their
-	 * corresponding indices
-	 */
-	private final Map<Long, Index> indexMap;
-
-	/**
-	 * DAF
-	 */
-	private final DataFile dataFile;
-
-	/**
-	 * creates a new store
-	 * 
-	 * @param storeConfiguration
-	 * @param objectTransformer
-	 * @throws IOException
-	 */
-	private Store(StoreConfiguration storeConfiguration, ObjectTransformer<T> objectTransformer) throws IOException {
-		this.objectTransformer = objectTransformer;
-		dataFile = new DataFile(storeConfiguration);
-		indexMap = new HashMap<>();
-		DataQueue buffer = new DataQueue();
-		readableBuffer = buffer.readableView();
-		writableBuffer = buffer.writableView();
-		itemCache = new WeakCache<>();
-		for (Index entry : dataFile.initialize())
-			indexMap.put(entry.getId(), entry);
-	}
-
-	/**
-	 * loads the item with the given id from the DAF into the cache of this store
-	 * 
-	 * @param storeID
-	 * @throws IOException
-	 */
-	private void cache(long storeID) throws IOException {
-		Index entry = indexMap.get(storeID);
-		if (entry == null)
-			throw new NoSuchElementException("no item with storeID: " + storeID);
-		writableBuffer.clear();
-		dataFile.readData(entry, writableBuffer);
-		itemCache.cache(storeID, objectTransformer.getFrom(readableBuffer));
-	}
-
-	/**
-	 * deletes the item with the given id from this store
-	 * 
-	 * @param storeID
-	 * @throws IOException
-	 */
-	final void delete(long storeID) throws IOException {
-		Index entry = indexMap.get(storeID);
-		if (entry == null)
-			throw new NoSuchElementException("no item with storeID: " + storeID);
-		indexMap.remove(storeID);
-		itemCache.remove(storeID);
-		dataFile.free(entry);
-	}
-
-	/**
-	 * updates the content of the item in this store given by storeID
-	 * 
-	 * @param storeID
-	 * @param content
-	 * @throws IOException
-	 */
-	final void update(long storeID, T content) throws IOException {
-		Index entry = indexMap.get(storeID);
-		long dataLength;
-		if (entry == null)
-			throw new NoSuchElementException("no item with storeID: " + storeID);
-		writableBuffer.clear();
-		objectTransformer.putInto(content, writableBuffer);
-		dataLength = readableBuffer.available();
-		if (entry.getDataLocation().getLength() != dataLength) {
-			dataFile.free(entry);
-			entry = dataFile.reserveSpace(storeID, dataLength);
-		}
-		dataFile.writeData(entry, readableBuffer);
-		itemCache.cache(storeID, content);
+		StoreImpl<T> store = new StoreImpl<>(configuration, transformer);
+		if (!configuration.isThreadSafe())
+			return store;
+		return new SynchronizedStore<>(store);
 	}
 
 	/**
 	 * @return a {@link StoreQuery} which can be used to query items in this store
 	 */
-	public StoreQuery<T> query() {
-		return new StoreQuery<>(this, Collections.unmodifiableSet(indexMap.keySet()));
-	}
+	StoreQuery<T> query();
 
 	/**
 	 * @param storeID
 	 * @return if an item stored in this store is identified by the given id
 	 */
-	public final boolean contains(long storeID) {
-		return indexMap.containsKey(storeID);
-	}
+	boolean contains(long storeID);
 
 	/**
 	 * @param storeID
 	 * @return content of the item stored in this store (identified by the given id)
 	 * @throws IOException
 	 */
-	public final T getContent(long storeID) throws IOException {
-		if (!itemCache.contains(storeID))
-			cache(storeID);
-		return itemCache.get(storeID);
-	}
+	T getContent(long storeID) throws IOException;
 
 	/**
 	 * @param storeID
@@ -204,9 +87,7 @@ public class Store<T> implements Closeable {
 	 *         given id)
 	 * @throws IOException
 	 */
-	public final StoreItem<T> get(long storeID) throws IOException {
-		return new StoreItem<>(this, storeID);
-	}
+	StoreItem<T> get(long storeID) throws IOException;
 
 	/**
 	 * stores the content. reserves a new id and as much space as the content needs
@@ -216,40 +97,21 @@ public class Store<T> implements Closeable {
 	 * @return item
 	 * @throws IOException
 	 */
-	public final StoreItem<T> store(T content) throws IOException {
-		writableBuffer.clear();
-		objectTransformer.putInto(content, writableBuffer);
-		Index entry = dataFile.reserveSpace(readableBuffer.available());
-		dataFile.writeData(entry, readableBuffer);
-		itemCache.cache(entry.getId(), content);
-		indexMap.put(entry.getId(), entry);
-		return new StoreItem<>(this, entry.getId());
-	}
+	StoreItem<T> store(T content) throws IOException;
 
 	/**
 	 * @return unmodifiable set of ids of every object stored
 	 */
-	public final Set<Long> getIds() {
-		return Collections.unmodifiableSet(indexMap.keySet());
-	}
+	Set<Long> getIds();
 
 	/**
 	 * @return true if no item is stored in this store
 	 */
-	public boolean isEmpty() {
-		return indexMap.isEmpty();
-	}
+	boolean isEmpty();
 
 	/**
 	 * @return number of items stored in this store
 	 */
-	public int size() {
-		return indexMap.size();
-	}
-
-	@Override
-	public final void close() throws IOException {
-		dataFile.close();
-	}
+	int size();
 
 }

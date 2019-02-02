@@ -26,6 +26,11 @@ import de.nuttercode.util.assurance.Positive;
 public final class StoreConfiguration {
 
 	/**
+	 * true if and only if the {@link Store} should be thread-safe
+	 */
+	private boolean isThreadSafe;
+
+	/**
 	 * suffix of the data files - should be a short acronym like "daf" or something
 	 * similar. must not be empty or null.
 	 */
@@ -79,6 +84,7 @@ public final class StoreConfiguration {
 		setMinimumDataFileSize(configuration.getMinimumDataFileSize());
 		setDataFileIncrease(configuration.getDataFileIncrease());
 		setStartID(configuration.getStartID());
+		setThreadSafe(configuration.isThreadSafe());
 	}
 
 	/**
@@ -110,6 +116,23 @@ public final class StoreConfiguration {
 		minimumDataFileSize = 1024;
 		setDataFileIncrease(512);
 		setStartID(500);
+		setThreadSafe(false);
+	}
+
+	/**
+	 * set this to true if and only if the {@link Store} should be thread-safe
+	 * 
+	 * @param isThreadSafe
+	 */
+	public void setThreadSafe(boolean isThreadSafe) {
+		this.isThreadSafe = isThreadSafe;
+	}
+
+	/**
+	 * @return true if and only if the {@link Store} should be thread-safe
+	 */
+	public boolean isThreadSafe() {
+		return isThreadSafe;
 	}
 
 	/**

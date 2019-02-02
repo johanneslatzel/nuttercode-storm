@@ -6,8 +6,8 @@ import java.io.IOException;
  * 
  * represents some item in a {@link de.nuttercode.storm.Store}. Use
  * {@link #delete()} to delete this item. use {@link #update(Object)} to change
- * this items content. use {@link #exists()} to check if this item exists in
- * the corresponding {@link Store}.
+ * this items content. use {@link #exists()} to check if this item exists in the
+ * corresponding {@link Store}.
  * 
  * @author Johannes B. Latzel
  *
@@ -23,9 +23,9 @@ public final class StoreItem<T> {
 	/**
 	 * {@link Store} in which this item is stored
 	 */
-	private final Store<T> store;
+	private final ModifiableStore<T> store;
 
-	StoreItem(Store<T> store, long storeID) {
+	StoreItem(ModifiableStore<T> store, long storeID) {
 		assert (store != null);
 		this.storeID = storeID;
 		this.store = store;
