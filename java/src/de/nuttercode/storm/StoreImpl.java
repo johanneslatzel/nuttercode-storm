@@ -101,16 +101,12 @@ class StoreImpl<T> implements ModifiableStore<T> {
 	@Override
 	public final void update(long storeID, T content) throws IOException {
 		Index entry = indexMap.get(storeID);
-		long dataLength;
 		if (entry == null)
 			throw new NoSuchElementException("no item with storeID: " + storeID);
 		writableBuffer.clear();
 		objectTransformer.putInto(content, writableBuffer);
-		dataLength = readableBuffer.available();
-		if (entry.getDataLocation().getLength() != dataLength) {
-			dataFile.free(entry);
-			entry = dataFile.reserveSpace(storeID, dataLength);
-		}
+		dataFile.free(entry);
+		entry = dataFile.reserveSpace(storeID, readableBuffer.available());
 		dataFile.writeData(entry, readableBuffer);
 		itemCache.cache(storeID, content);
 	}

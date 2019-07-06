@@ -134,7 +134,7 @@ class DataFile implements Closeable {
 			return Long.compare(l.getBegin(), r.getBegin());
 		});
 		freeLocationByLength = new TreeSet<LongInterval>((l, r) -> {
-			return Long.compare(r.getLength(), r.getLength());
+			return Long.compare(l.getLength(), r.getLength());
 		});
 		file = new RandomAccessFile(dataFile, "rw");
 		channel = file.getChannel();
@@ -304,11 +304,19 @@ class DataFile implements Closeable {
 			createFree(dataLength);
 			return getFree(dataLength);
 		}
+		if (free.getLength() < dataLength) {
+			throw new IllegalStateException(
+					"free location is not big enough (" + free.getLength() + " < " + dataLength + ")!");
+		}
 		removeFree(free);
 		if (free.getLength() > dataLength) {
 			newEnd = free.getBegin() + dataLength;
 			addFree(Range.of(newEnd, free.getEnd()));
 			free = Range.of(free.getBegin(), newEnd);
+		}
+		if (free.getLength() < dataLength) {
+			throw new IllegalStateException(
+					"free location has been cut too short (" + free.getLength() + " < " + dataLength + ")!");
 		}
 		return free;
 	}
