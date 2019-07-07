@@ -21,7 +21,7 @@ import de.nuttercode.util.buffer.ReadableBuffer;
  *
  * @param <T> content type
  */
-class StoreImpl<T> implements ModifiableStore<T> {
+class StoreImpl<T> implements Store<T> {
 
 	/**
 	 * readable view of the same buffer {@link #writableBuffer} uses

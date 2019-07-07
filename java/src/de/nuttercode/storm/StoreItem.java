@@ -23,9 +23,9 @@ public final class StoreItem<T> {
 	/**
 	 * {@link Store} in which this item is stored
 	 */
-	private final ModifiableStore<T> store;
+	private final Store<T> store;
 
-	StoreItem(ModifiableStore<T> store, long storeID) {
+	StoreItem(Store<T> store, long storeID) {
 		assert (store != null);
 		this.storeID = storeID;
 		this.store = store;

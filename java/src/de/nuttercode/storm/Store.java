@@ -61,6 +61,23 @@ public interface Store<T> extends Closeable {
 	}
 
 	/**
+	 * deletes the item with the given id from this store
+	 * 
+	 * @param storeID
+	 * @throws IOException
+	 */
+	void delete(long storeID) throws IOException;
+
+	/**
+	 * updates the content of the item in this store given by storeID
+	 * 
+	 * @param storeID
+	 * @param content
+	 * @throws IOException
+	 */
+	void update(long storeID, T content) throws IOException;
+
+	/**
 	 * @return a {@link StoreQuery} which can be used to query items in this store
 	 */
 	StoreQuery<T> query();
