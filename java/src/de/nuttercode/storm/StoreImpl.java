@@ -50,6 +50,11 @@ class StoreImpl<T> implements ModifiableStore<T> {
 	private final Map<Long, Index> indexMap;
 
 	/**
+	 * used to log activities or null if logging is disabled
+	 */
+	private final StoreLog storeLog;
+
+	/**
 	 * DAF
 	 */
 	private final DataFile dataFile;
@@ -63,7 +68,13 @@ class StoreImpl<T> implements ModifiableStore<T> {
 	 */
 	StoreImpl(StoreConfiguration storeConfiguration, ObjectTransformer<T> objectTransformer) throws IOException {
 		this.objectTransformer = objectTransformer;
-		dataFile = new DataFile(storeConfiguration);
+		if (storeConfiguration.isLogEnabled()) {
+			storeLog = new StoreLog(storeConfiguration.getLogFile());
+			storeLog.log("initializing store");
+		} else {
+			storeLog = null;
+		}
+		dataFile = new DataFile(storeConfiguration, storeLog);
 		indexMap = new HashMap<>();
 		DataQueue buffer = new DataQueue();
 		readableBuffer = buffer.readableView();
@@ -71,6 +82,8 @@ class StoreImpl<T> implements ModifiableStore<T> {
 		itemCache = new WeakCache<>();
 		for (Index entry : dataFile.initialize())
 			indexMap.put(entry.getId(), entry);
+		if (storeLog != null)
+			storeLog.log("done initializing");
 	}
 
 	/**
@@ -80,6 +93,8 @@ class StoreImpl<T> implements ModifiableStore<T> {
 	 * @throws IOException
 	 */
 	private void cache(long storeID) throws IOException {
+		if (storeLog != null)
+			storeLog.log("caching item " + storeID);
 		Index entry = indexMap.get(storeID);
 		if (entry == null)
 			throw new NoSuchElementException("no item with storeID: " + storeID);
@@ -90,6 +105,8 @@ class StoreImpl<T> implements ModifiableStore<T> {
 
 	@Override
 	public final void delete(long storeID) throws IOException {
+		if (storeLog != null)
+			storeLog.log("deleting item " + storeID);
 		Index entry = indexMap.get(storeID);
 		if (entry == null)
 			throw new NoSuchElementException("no item with storeID: " + storeID);
@@ -100,6 +117,8 @@ class StoreImpl<T> implements ModifiableStore<T> {
 
 	@Override
 	public final void update(long storeID, T content) throws IOException {
+		if (storeLog != null)
+			storeLog.log("updating item " + storeID);
 		Index entry = indexMap.get(storeID);
 		if (entry == null)
 			throw new NoSuchElementException("no item with storeID: " + storeID);
@@ -161,6 +180,8 @@ class StoreImpl<T> implements ModifiableStore<T> {
 	 */
 	@Override
 	public StoreItem<T> store(T content) throws IOException {
+		if (storeLog != null)
+			storeLog.log("storing new content " + content);
 		writableBuffer.clear();
 		objectTransformer.putInto(content, writableBuffer);
 		Index entry = dataFile.reserveSpace(readableBuffer.available());
@@ -196,7 +217,10 @@ class StoreImpl<T> implements ModifiableStore<T> {
 
 	@Override
 	public void close() throws IOException {
+		if (storeLog != null)
+			storeLog.log("closing store");
 		dataFile.close();
+		storeLog.close();
 	}
 
 }

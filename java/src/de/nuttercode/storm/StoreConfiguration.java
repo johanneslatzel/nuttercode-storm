@@ -71,6 +71,16 @@ public final class StoreConfiguration {
 	private long startID;
 
 	/**
+	 * true if activities of the {@link Store} should be written to a log file
+	 */
+	private boolean isLogEnabled;
+
+	/**
+	 * suffix of the {@link StoreLog} file
+	 */
+	private String logFileSuffix;
+
+	/**
 	 * copy-constructor
 	 * 
 	 * @param configuration
@@ -85,6 +95,8 @@ public final class StoreConfiguration {
 		setDataFileIncrease(configuration.getDataFileIncrease());
 		setStartID(configuration.getStartID());
 		setThreadSafe(configuration.isThreadSafe());
+		setLogEnabled(configuration.isLogEnabled());
+		setLogFileSuffix(configuration.getLogFileSuffix());
 	}
 
 	/**
@@ -117,6 +129,8 @@ public final class StoreConfiguration {
 		setDataFileIncrease(512);
 		setStartID(500);
 		setThreadSafe(false);
+		setLogEnabled(false);
+		setLogFileSuffix("log");
 	}
 
 	/**
@@ -251,6 +265,45 @@ public final class StoreConfiguration {
 	public void setStartID(@InLongRange(begin = DataFile.MIN_ID, end = DataFile.MAX_ID) long startID) {
 		Assurance.assureBoundaries(startID, DataFile.MIN_ID, DataFile.MAX_ID);
 		this.startID = startID;
+	}
+
+	/**
+	 * @return true if activities of the {@link Store} will be logged in a log file
+	 */
+	public boolean isLogEnabled() {
+		return isLogEnabled;
+	}
+
+	/**
+	 * @param isLogEnabled set to true if logging of activities should be enabled
+	 */
+	public void setLogEnabled(boolean isLogEnabled) {
+		this.isLogEnabled = isLogEnabled;
+	}
+
+	/**
+	 * @return the log file (LOG)
+	 * 
+	 */
+	public @NotNull File getLogFile() {
+		return new File(getBasePath().toString() + File.separatorChar + getStoreName() + "." + getLogFileSuffix());
+	}
+
+	/**
+	 * @return suffix of the log file
+	 */
+	public String getLogFileSuffix() {
+		return logFileSuffix;
+	}
+
+	/**
+	 * @param logFileSuffix suffix of log file
+	 * @throws IllegalArgumentException if logFileSuffix is equal to
+	 *                                  {@link #getDataFileSuffix()}
+	 */
+	public void setLogFileSuffix(String logFileSuffix) {
+		Assurance.assureNotEqual(getDataFileSuffix(), logFileSuffix);
+		this.logFileSuffix = logFileSuffix;
 	}
 
 }

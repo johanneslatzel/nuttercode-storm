@@ -114,13 +114,19 @@ class DataFile implements Closeable {
 	private long lastIndexBlockStart;
 
 	/**
+	 * used to log activities or null if logging is disabled
+	 */
+	private final StoreLog storeLog;
+
+	/**
 	 * creates a new (uninitialized) DAF
 	 * 
 	 * @param configuration
 	 * @throws IOException
 	 */
-	public DataFile(StoreConfiguration configuration) throws IOException {
+	public DataFile(StoreConfiguration configuration, StoreLog storeLog) throws IOException {
 		this.configuration = configuration;
+		this.storeLog = storeLog;
 		boolean isNewFile = false;
 		File dataFile = configuration.getDataFile();
 		if (!dataFile.exists()) {
@@ -172,8 +178,11 @@ class DataFile implements Closeable {
 	 * 
 	 * @param count
 	 * @throws IOException
+	 * @throws IllegalArgumentException if count < 1 or count >
+	 *                                  {@link Integer#MAX_VALUE}
 	 */
 	private void readBytes(long count) throws IOException {
+		Assurance.assureBoundaries(count, 1, Integer.MAX_VALUE);
 		if (dataQueue.available() >= count)
 			return;
 		long remaining = count;
@@ -187,16 +196,19 @@ class DataFile implements Closeable {
 			byteBuffer.flip();
 			dataQueue.putByteBuffer(byteBuffer);
 		}
+		dataQueue.retain((int) count);
 	}
 
 	/**
 	 * removes the location from the set of free locations
 	 * 
-	 * @param free
+	 * @param location
 	 */
-	private void removeFree(LongInterval free) {
-		freeLocationByLength.remove(free);
-		freeLocationByStart.remove(free);
+	private void removeFree(LongInterval location) {
+		if (storeLog != null)
+			storeLog.log("marking " + location + " as used");
+		freeLocationByLength.remove(location);
+		freeLocationByStart.remove(location);
 	}
 
 	/**
@@ -205,6 +217,8 @@ class DataFile implements Closeable {
 	 * @param location
 	 */
 	private void addFree(LongInterval location) {
+		if (storeLog != null)
+			storeLog.log("marking " + location + " as free");
 		freeLocationByLength.add(location);
 		freeLocationByStart.add(location);
 	}
@@ -215,9 +229,13 @@ class DataFile implements Closeable {
 	 * reserved completely, until the already reserved parts are free.
 	 */
 	private void reserve(LongInterval location) {
+		if (storeLog != null)
+			storeLog.log("reserving " + location);
 		if (freeLocationByStart.isEmpty())
 			throw new IllegalStateException("no free locations left");
 		LongInterval free = freeLocationByStart.floor(location);
+		if (free == null)
+			throw new IllegalArgumentException("no free element containing " + location + " available");
 		if (!free.contains(location))
 			throw new IllegalArgumentException(free + " does not contain " + location);
 		removeFree(free);
@@ -249,6 +267,8 @@ class DataFile implements Closeable {
 		long length = Math.max(dataLength, configuration.getDataFileIncrease());
 		long begin = file.length();
 		LongInterval free = Range.of(begin, begin + length);
+		if (storeLog != null)
+			storeLog.log("creating new free location " + free);
 		file.setLength(free.getEnd());
 		addFree(free);
 	}
@@ -276,6 +296,8 @@ class DataFile implements Closeable {
 	 */
 	private void createIndexBlock() throws IOException {
 		LongInterval free = getFree(INDEX_BLOCK_SIZE);
+		if (storeLog != null)
+			storeLog.log("creating index block " + free);
 		position(lastIndexBlockStart);
 		lastIndexBlockStart = free.getBegin();
 		dataQueue.putLong(lastIndexBlockStart);
@@ -298,6 +320,8 @@ class DataFile implements Closeable {
 	 * @throws IOException
 	 */
 	private LongInterval getFree(long dataLength) throws IOException {
+		if (storeLog != null)
+			storeLog.log("retrieving free location of size " + dataLength);
 		LongInterval free = freeLocationByLength.ceiling(Range.of(0, dataLength));
 		long newEnd;
 		if (free == null) {
@@ -318,6 +342,8 @@ class DataFile implements Closeable {
 			throw new IllegalStateException(
 					"free location has been cut too short (" + free.getLength() + " < " + dataLength + ")!");
 		}
+		if (storeLog != null)
+			storeLog.log("found/created free location " + free);
 		return free;
 	}
 
@@ -328,23 +354,24 @@ class DataFile implements Closeable {
 	 * @throws IOException
 	 */
 	private long getEmptyIndex() throws IOException {
-		if (emptyIndices.isEmpty()) {
+		if (emptyIndices.isEmpty())
 			createIndexBlock();
-		}
 		return emptyIndices.remove(emptyIndices.size() - 1);
 	}
 
 	/**
 	 * reserves the specified dataLength space in the DAF for the specified id
 	 * 
-	 * @param storeID
+	 * @param storeId
 	 * @param dataLength
 	 * @return a new index (with the specified id) whose data location has the
 	 *         length of dataLength
 	 * @throws IOException
 	 */
-	Index reserveSpace(long storeID, long dataLength) throws IOException {
-		Index entry = new Index(storeID, getFree(dataLength), getEmptyIndex());
+	Index reserveSpace(long storeId, long dataLength) throws IOException {
+		if (storeLog != null)
+			storeLog.log("reserving space of size " + dataLength + " for id " + storeId);
+		Index entry = new Index(storeId, getFree(dataLength), getEmptyIndex());
 		position(entry.getIndexBegin());
 		dataQueue.putLong(entry.getId());
 		dataQueue.putLong(entry.getDataLocation().getBegin());
@@ -370,6 +397,8 @@ class DataFile implements Closeable {
 	 * @throws IOException
 	 */
 	void free(Index index) throws IOException {
+		if (storeLog != null)
+			storeLog.log("freeing " + index);
 		addFree(index.getDataLocation());
 		position(index.getIndexBegin());
 		dataQueue.putLong(EMPTY_INDEX_ID);
@@ -458,6 +487,8 @@ class DataFile implements Closeable {
 
 	@Override
 	public void close() throws IOException {
+		if (storeLog != null)
+			storeLog.log("closing datafile");
 		channel.force(true);
 		channel.close();
 		file.close();
