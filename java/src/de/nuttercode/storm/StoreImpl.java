@@ -60,6 +60,12 @@ class StoreImpl<T> implements ModifiableStore<T> {
 	private final DataFile dataFile;
 
 	/**
+	 * log used to synchronize transactions if configuration specifies that this
+	 * store needs to be thread safe
+	 */
+	private final Object storeLock;
+
+	/**
 	 * creates a new store
 	 * 
 	 * @param storeConfiguration
@@ -74,6 +80,7 @@ class StoreImpl<T> implements ModifiableStore<T> {
 		} else {
 			storeLog = null;
 		}
+		storeLock = storeConfiguration.isThreadSafe() ? new Object() : null;
 		dataFile = new DataFile(storeConfiguration, storeLog);
 		indexMap = new HashMap<>();
 		DataQueue buffer = new DataQueue();
@@ -103,31 +110,144 @@ class StoreImpl<T> implements ModifiableStore<T> {
 		itemCache.cache(storeID, objectTransformer.getFrom(readableBuffer));
 	}
 
+	/**
+	 * implementation of {@link #delete(long)}
+	 * 
+	 * @param storeId
+	 * @throws IOException
+	 */
+	private void deleteImpl(long storeId) throws IOException {
+		if (storeLog != null)
+			storeLog.log("deleting item " + storeId);
+		Index entry = indexMap.get(storeId);
+		if (entry == null)
+			throw new NoSuchElementException("no item with storeID: " + storeId);
+		indexMap.remove(storeId);
+		itemCache.remove(storeId);
+		dataFile.free(entry);
+	}
+
+	/**
+	 * implementation of {@link #update(long, Object)}
+	 * 
+	 * @param storeId
+	 * @param content
+	 * @throws IOException
+	 */
+	private void updateImpl(long storeId, T content) throws IOException {
+		if (storeLog != null)
+			storeLog.log("updating item " + storeId);
+		Index entry = indexMap.get(storeId);
+		if (entry == null)
+			throw new NoSuchElementException("no item with storeID: " + storeId);
+		writableBuffer.clear();
+		objectTransformer.putInto(content, writableBuffer);
+		dataFile.free(entry);
+		entry = dataFile.reserveSpace(storeId, readableBuffer.available());
+		dataFile.writeData(entry, readableBuffer);
+		itemCache.cache(storeId, content);
+	}
+
+	/**
+	 * implementation of {@link #contains(long)}
+	 * 
+	 * @param storeId
+	 * @return
+	 */
+	private boolean containsImpl(long storeId) {
+		return indexMap.containsKey(storeId);
+	}
+
+	/**
+	 * implementation of {@link #getContentImpl(long)}
+	 * 
+	 * @param storeID
+	 * @return
+	 * @throws IOException
+	 */
+	private T getContentImpl(long storeID) throws IOException {
+		if (!itemCache.contains(storeID))
+			cache(storeID);
+		return itemCache.get(storeID);
+	}
+
+	/**
+	 * implementation of {@link #store(Object)}
+	 * 
+	 * @param content
+	 * @return
+	 * @throws IOException
+	 */
+	private StoreItem<T> storeImpl(T content) throws IOException {
+		if (storeLog != null)
+			storeLog.log("storing new content " + content);
+		writableBuffer.clear();
+		objectTransformer.putInto(content, writableBuffer);
+		Index entry = dataFile.reserveSpace(readableBuffer.available());
+		dataFile.writeData(entry, readableBuffer);
+		itemCache.cache(entry.getId(), content);
+		indexMap.put(entry.getId(), entry);
+		return new StoreItem<T>(this, entry.getId());
+	}
+
+	/**
+	 * implementation of {@link #getIds()}
+	 * 
+	 * @return
+	 */
+	private Set<Long> getIdsImpl() {
+		return Collections.unmodifiableSet(indexMap.keySet());
+	}
+
+	/**
+	 * implementation of {@link #isEmpty()}
+	 * 
+	 * @return
+	 */
+	private boolean isEmptyImpl() {
+		return indexMap.isEmpty();
+	}
+
+	/**
+	 * implementation of {@link #size()}
+	 * 
+	 * @return
+	 */
+	private int sizeImpl() {
+		return indexMap.size();
+	}
+
+	/**
+	 * implementation of {@link #close()}
+	 * 
+	 * @throws IOException
+	 */
+	private void closeImpl() throws IOException {
+		if (storeLog != null)
+			storeLog.log("closing store");
+		dataFile.close();
+		if (storeLog != null)
+			storeLog.close();
+	}
+
 	@Override
 	public final void delete(long storeID) throws IOException {
-		if (storeLog != null)
-			storeLog.log("deleting item " + storeID);
-		Index entry = indexMap.get(storeID);
-		if (entry == null)
-			throw new NoSuchElementException("no item with storeID: " + storeID);
-		indexMap.remove(storeID);
-		itemCache.remove(storeID);
-		dataFile.free(entry);
+		if (storeLock != null) {
+			synchronized (storeLock) {
+				deleteImpl(storeID);
+			}
+		} else
+			deleteImpl(storeID);
 	}
 
 	@Override
 	public final void update(long storeID, T content) throws IOException {
-		if (storeLog != null)
-			storeLog.log("updating item " + storeID);
-		Index entry = indexMap.get(storeID);
-		if (entry == null)
-			throw new NoSuchElementException("no item with storeID: " + storeID);
-		writableBuffer.clear();
-		objectTransformer.putInto(content, writableBuffer);
-		dataFile.free(entry);
-		entry = dataFile.reserveSpace(storeID, readableBuffer.available());
-		dataFile.writeData(entry, readableBuffer);
-		itemCache.cache(storeID, content);
+		if (storeLock != null) {
+			synchronized (storeLock) {
+				updateImpl(storeID, content);
+			}
+		} else
+			updateImpl(storeID, content);
 	}
 
 	/**
@@ -135,7 +255,7 @@ class StoreImpl<T> implements ModifiableStore<T> {
 	 */
 	@Override
 	public StoreQuery<T> query() {
-		return new StoreQuery<>(this, Collections.unmodifiableSet(indexMap.keySet()));
+		return new StoreQuery<>(this);
 	}
 
 	/**
@@ -144,7 +264,12 @@ class StoreImpl<T> implements ModifiableStore<T> {
 	 */
 	@Override
 	public boolean contains(long storeID) {
-		return indexMap.containsKey(storeID);
+		if (storeLock != null) {
+			synchronized (storeLock) {
+				return containsImpl(storeID);
+			}
+		} else
+			return containsImpl(storeID);
 	}
 
 	/**
@@ -154,9 +279,12 @@ class StoreImpl<T> implements ModifiableStore<T> {
 	 */
 	@Override
 	public T getContent(long storeID) throws IOException {
-		if (!itemCache.contains(storeID))
-			cache(storeID);
-		return itemCache.get(storeID);
+		if (storeLock != null) {
+			synchronized (storeLock) {
+				return getContentImpl(storeID);
+			}
+		} else
+			return getContentImpl(storeID);
 	}
 
 	/**
@@ -180,15 +308,12 @@ class StoreImpl<T> implements ModifiableStore<T> {
 	 */
 	@Override
 	public StoreItem<T> store(T content) throws IOException {
-		if (storeLog != null)
-			storeLog.log("storing new content " + content);
-		writableBuffer.clear();
-		objectTransformer.putInto(content, writableBuffer);
-		Index entry = dataFile.reserveSpace(readableBuffer.available());
-		dataFile.writeData(entry, readableBuffer);
-		itemCache.cache(entry.getId(), content);
-		indexMap.put(entry.getId(), entry);
-		return new StoreItem<>(this, entry.getId());
+		if (storeLock != null) {
+			synchronized (storeLock) {
+				return storeImpl(content);
+			}
+		} else
+			return storeImpl(content);
 	}
 
 	/**
@@ -196,7 +321,12 @@ class StoreImpl<T> implements ModifiableStore<T> {
 	 */
 	@Override
 	public Set<Long> getIds() {
-		return Collections.unmodifiableSet(indexMap.keySet());
+		if (storeLock != null) {
+			synchronized (storeLock) {
+				return getIdsImpl();
+			}
+		} else
+			return getIdsImpl();
 	}
 
 	/**
@@ -204,7 +334,12 @@ class StoreImpl<T> implements ModifiableStore<T> {
 	 */
 	@Override
 	public boolean isEmpty() {
-		return indexMap.isEmpty();
+		if (storeLock != null) {
+			synchronized (storeLock) {
+				return isEmptyImpl();
+			}
+		} else
+			return isEmptyImpl();
 	}
 
 	/**
@@ -212,15 +347,22 @@ class StoreImpl<T> implements ModifiableStore<T> {
 	 */
 	@Override
 	public int size() {
-		return indexMap.size();
+		if (storeLock != null) {
+			synchronized (storeLock) {
+				return sizeImpl();
+			}
+		} else
+			return sizeImpl();
 	}
 
 	@Override
 	public void close() throws IOException {
-		if (storeLog != null)
-			storeLog.log("closing store");
-		dataFile.close();
-		storeLog.close();
+		if (storeLock != null) {
+			synchronized (storeLock) {
+				closeImpl();
+			}
+		} else
+			closeImpl();
 	}
 
 }

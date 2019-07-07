@@ -57,10 +57,7 @@ public interface Store<T> extends Closeable {
 			@NotNull ObjectTransformer<T> transformer) throws IOException {
 		Assurance.assureNotNull(configuration);
 		Assurance.assureNotNull(transformer);
-		StoreImpl<T> store = new StoreImpl<>(configuration, transformer);
-		if (!configuration.isThreadSafe())
-			return store;
-		return new SynchronizedStore<>(store);
+		return new StoreImpl<>(configuration, transformer);
 	}
 
 	/**
