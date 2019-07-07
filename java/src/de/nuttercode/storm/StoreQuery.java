@@ -38,20 +38,13 @@ public class StoreQuery<T> {
 	private final Store<T> store;
 
 	/**
-	 * 
-	 */
-	private final Set<Long> storeIDSet;
-
-	/**
 	 * called by {@link Store#query()}
 	 * 
 	 * @param store
 	 * @param storeIDSet
 	 */
-	StoreQuery(Store<T> store, Set<Long> storeIDSet) {
+	StoreQuery(Store<T> store) {
 		assert (store != null);
-		assert (storeIDSet != null);
-		this.storeIDSet = storeIDSet;
 		this.store = store;
 		storeIDFilterList = new ArrayList<>();
 		contentFilterList = new ArrayList<>();
@@ -113,50 +106,13 @@ public class StoreQuery<T> {
 	/**
 	 * terminal operation
 	 * 
-	 * @return first item which matches all filters or null if none matches
-	 * @throws IOException when thrown by the {@link de.nuttercode.storm.Store}
-	 */
-	public T first() throws IOException {
-		T content;
-		for (long storeID : storeIDSet) {
-			if (!evaluateStoreID(storeID))
-				break;
-			content = store.get(storeID).getContent();
-			if (evaluateContent(content))
-				return content;
-		}
-		return null;
-	}
-
-	/**
-	 * terminal operation
-	 * 
-	 * @return last item which matches all filters or null if none matches
-	 * @throws IOException when thrown by the {@link de.nuttercode.storm.Store}
-	 */
-	public T last() throws IOException {
-		T content;
-		T last = null;
-		for (long storeID : storeIDSet) {
-			if (!evaluateStoreID(storeID))
-				break;
-			content = store.get(storeID).getContent();
-			if (evaluateContent(content))
-				last = content;
-		}
-		return last;
-	}
-
-	/**
-	 * terminal operation
-	 * 
 	 * @return a {@link Set} of all items which match all filters
 	 * @throws IOException when thrown by the {@link de.nuttercode.storm.Store}
 	 */
 	public Set<StoreItem<T>> all() throws IOException {
 		Set<StoreItem<T>> itemSet = new HashSet<>();
 		StoreItem<T> item;
-		for (long storeID : storeIDSet) {
+		for (long storeID : store.getIds()) {
 			if (evaluateStoreID(storeID)) {
 				item = store.get(storeID);
 				if (evaluateContent(item.getContent()))
