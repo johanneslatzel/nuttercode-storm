@@ -106,10 +106,14 @@ public final class StoreItem<T> {
 	@Override
 	public String toString() {
 		Object content;
-		try {
-			content = getContent();
-		} catch (IOException e) {
-			content = e.getMessage();
+		if (exists()) {
+			try {
+				content = getContent();
+			} catch (IOException e) {
+				content = e.getMessage();
+			}
+		} else {
+			content = "Object does not exist";
 		}
 		return "StoreItem [getId()=" + getId() + ", getContent()=" + content + ", isValid()=" + exists() + "]";
 	}
