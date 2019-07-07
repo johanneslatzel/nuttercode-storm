@@ -377,6 +377,8 @@ class DataFile implements Closeable {
 		dataQueue.putLong(entry.getDataLocation().getBegin());
 		dataQueue.putLong(entry.getDataLocation().getEnd());
 		writeBytes();
+		if (storeLog != null)
+			storeLog.log("created " + entry);
 		return entry;
 	}
 
@@ -474,6 +476,8 @@ class DataFile implements Closeable {
 					emptyIndices.add(indexLocation);
 				} else {
 					current = new Index(id, Range.of(dataStart, dataEnd), indexLocation);
+					if (storeLog != null)
+						storeLog.log("loading " + current);
 					reserve(current.getDataLocation());
 					collection.add(current);
 				}
