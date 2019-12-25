@@ -9,7 +9,6 @@ import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.TreeSet;
 
 import de.nuttercode.util.LongInterval;
 import de.nuttercode.util.Range;
@@ -74,14 +73,9 @@ class DataFile implements Closeable {
 	private final List<Long> emptyIndices;
 
 	/**
-	 * free locations sorted by start address
+	 * contains all free locations
 	 */
-	private final TreeSet<LongInterval> freeLocationByStart;
-
-	/**
-	 * free locations sorted by length
-	 */
-	private final TreeSet<LongInterval> freeLocationByLength;
+	private final FreeLocationCollection freeLocationList;
 
 	/**
 	 * actual buffer for DAF I/O (direct)
@@ -136,12 +130,7 @@ class DataFile implements Closeable {
 			isNewFile = true;
 		}
 		emptyIndices = new ArrayList<>();
-		freeLocationByStart = new TreeSet<LongInterval>((l, r) -> {
-			return Long.compare(l.getBegin(), r.getBegin());
-		});
-		freeLocationByLength = new TreeSet<LongInterval>((l, r) -> {
-			return Long.compare(l.getLength(), r.getLength());
-		});
+		freeLocationList = new FreeLocationCollection();
 		file = new RandomAccessFile(dataFile, "rw");
 		channel = file.getChannel();
 		byteBuffer = ByteBuffer.allocateDirect(configuration.getByteBufferSize());
@@ -196,19 +185,6 @@ class DataFile implements Closeable {
 			byteBuffer.flip();
 			dataQueue.putByteBuffer(byteBuffer);
 		}
-		dataQueue.retain((int) count);
-	}
-
-	/**
-	 * removes the location from the set of free locations
-	 * 
-	 * @param location
-	 */
-	private void removeFree(LongInterval location) {
-		if (storeLog != null)
-			storeLog.log("marking " + location + " as used");
-		freeLocationByLength.remove(location);
-		freeLocationByStart.remove(location);
 	}
 
 	/**
@@ -217,10 +193,9 @@ class DataFile implements Closeable {
 	 * @param location
 	 */
 	private void addFree(LongInterval location) {
-		if (storeLog != null)
+		if (storeLog != null && storeLog.isOpen())
 			storeLog.log("marking " + location + " as free");
-		freeLocationByLength.add(location);
-		freeLocationByStart.add(location);
+		freeLocationList.add(location);
 	}
 
 	/**
@@ -229,20 +204,11 @@ class DataFile implements Closeable {
 	 * reserved completely, until the already reserved parts are free.
 	 */
 	private void reserve(LongInterval location) {
-		if (storeLog != null)
-			storeLog.log("reserving " + location);
-		if (freeLocationByStart.isEmpty())
-			throw new IllegalStateException("no free locations left");
-		LongInterval free = freeLocationByStart.floor(location);
-		if (free == null)
-			throw new IllegalArgumentException("no free element containing " + location + " available");
-		if (!free.contains(location))
-			throw new IllegalArgumentException(free + " does not contain " + location);
-		removeFree(free);
-		if (free.getBegin() != location.getBegin())
-			addFree(Range.of(free.getBegin(), location.getBegin()));
-		if (location.getEnd() != free.getEnd())
-			addFree(Range.of(location.getEnd(), free.getEnd()));
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("reserving " + location, IndentationAction.INCREASE);
+		freeLocationList.reserve(location);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.decreaseIndentation();
 	}
 
 	/**
@@ -267,10 +233,12 @@ class DataFile implements Closeable {
 		long length = Math.max(dataLength, configuration.getDataFileIncrease());
 		long begin = file.length();
 		LongInterval free = Range.of(begin, begin + length);
-		if (storeLog != null)
-			storeLog.log("creating new free location " + free);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("creating new free location " + free, IndentationAction.INCREASE);
 		file.setLength(free.getEnd());
 		addFree(free);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.decreaseIndentation();
 	}
 
 	/**
@@ -296,8 +264,8 @@ class DataFile implements Closeable {
 	 */
 	private void createIndexBlock() throws IOException {
 		LongInterval free = getFree(INDEX_BLOCK_SIZE);
-		if (storeLog != null)
-			storeLog.log("creating index block " + free);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("creating index block " + free, IndentationAction.INCREASE);
 		position(lastIndexBlockStart);
 		lastIndexBlockStart = free.getBegin();
 		dataQueue.putLong(lastIndexBlockStart);
@@ -309,6 +277,8 @@ class DataFile implements Closeable {
 				.getEnd(); indexLocation += Index.INDEX_LENGTH) {
 			emptyIndices.add(indexLocation);
 		}
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.decreaseIndentation();
 	}
 
 	/**
@@ -320,10 +290,9 @@ class DataFile implements Closeable {
 	 * @throws IOException
 	 */
 	private LongInterval getFree(long dataLength) throws IOException {
-		if (storeLog != null)
-			storeLog.log("retrieving free location of size " + dataLength);
-		LongInterval free = freeLocationByLength.ceiling(Range.of(0, dataLength));
-		long newEnd;
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("retrieving free location of size " + dataLength, IndentationAction.INCREASE);
+		LongInterval free = freeLocationList.remove(dataLength);
 		if (free == null) {
 			createFree(dataLength);
 			return getFree(dataLength);
@@ -332,7 +301,7 @@ class DataFile implements Closeable {
 			throw new IllegalStateException(
 					"free location is not big enough (" + free.getLength() + " < " + dataLength + ")!");
 		}
-		removeFree(free);
+		long newEnd;
 		if (free.getLength() > dataLength) {
 			newEnd = free.getBegin() + dataLength;
 			addFree(Range.of(newEnd, free.getEnd()));
@@ -342,8 +311,8 @@ class DataFile implements Closeable {
 			throw new IllegalStateException(
 					"free location has been cut too short (" + free.getLength() + " < " + dataLength + ")!");
 		}
-		if (storeLog != null)
-			storeLog.log("found/created free location " + free);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("found/created free location " + free, IndentationAction.DECREASE);
 		return free;
 	}
 
@@ -369,16 +338,16 @@ class DataFile implements Closeable {
 	 * @throws IOException
 	 */
 	Index reserveSpace(long storeId, long dataLength) throws IOException {
-		if (storeLog != null)
-			storeLog.log("reserving space of size " + dataLength + " for id " + storeId);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("reserving space of size " + dataLength + " for id " + storeId, IndentationAction.INCREASE);
 		Index entry = new Index(storeId, getFree(dataLength), getEmptyIndex());
 		position(entry.getIndexBegin());
 		dataQueue.putLong(entry.getId());
 		dataQueue.putLong(entry.getDataLocation().getBegin());
 		dataQueue.putLong(entry.getDataLocation().getEnd());
 		writeBytes();
-		if (storeLog != null)
-			storeLog.log("created " + entry);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("created " + entry, IndentationAction.DECREASE);
 		return entry;
 	}
 
@@ -399,12 +368,19 @@ class DataFile implements Closeable {
 	 * @throws IOException
 	 */
 	void free(Index index) throws IOException {
-		if (storeLog != null)
-			storeLog.log("freeing " + index);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("freeing " + index, IndentationAction.INCREASE);
 		addFree(index.getDataLocation());
 		position(index.getIndexBegin());
 		dataQueue.putLong(EMPTY_INDEX_ID);
 		writeBytes();
+		position(index.getIndexBegin());
+		readBytes(8);
+		if (dataQueue.getLong() != EMPTY_INDEX_ID) {
+			throw new IllegalStateException("freeing did not work");
+		}
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.decreaseIndentation();
 	}
 
 	/**
@@ -419,6 +395,7 @@ class DataFile implements Closeable {
 		position(location.getBegin());
 		dataQueue.putBuffer(buffer);
 		writeBytes();
+
 	}
 
 	/**
@@ -476,10 +453,12 @@ class DataFile implements Closeable {
 					emptyIndices.add(indexLocation);
 				} else {
 					current = new Index(id, Range.of(dataStart, dataEnd), indexLocation);
-					if (storeLog != null)
-						storeLog.log("loading " + current);
+					if (storeLog != null && storeLog.isOpen())
+						storeLog.log("loading " + current, IndentationAction.INCREASE);
 					reserve(current.getDataLocation());
 					collection.add(current);
+					if (storeLog != null && storeLog.isOpen())
+						storeLog.decreaseIndentation();
 				}
 				indexLocation += Index.INDEX_LENGTH;
 			}
@@ -491,11 +470,15 @@ class DataFile implements Closeable {
 
 	@Override
 	public void close() throws IOException {
-		if (storeLog != null)
-			storeLog.log("closing datafile");
-		channel.force(true);
-		channel.close();
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("closing datafile", IndentationAction.INCREASE);
+		if (channel.isOpen()) {
+			channel.force(true);
+			channel.close();
+		}
 		file.close();
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.decreaseIndentation();
 	}
 
 }

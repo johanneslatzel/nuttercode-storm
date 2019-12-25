@@ -76,7 +76,7 @@ class StoreImpl<T> implements Store<T> {
 		this.objectTransformer = objectTransformer;
 		if (storeConfiguration.isLogEnabled()) {
 			storeLog = new StoreLog(storeConfiguration.getLogFile());
-			storeLog.log("initializing store");
+			storeLog.log("initializing store", IndentationAction.INCREASE);
 		} else {
 			storeLog = null;
 		}
@@ -89,8 +89,8 @@ class StoreImpl<T> implements Store<T> {
 		itemCache = new WeakCache<>();
 		for (Index entry : dataFile.initialize())
 			indexMap.put(entry.getId(), entry);
-		if (storeLog != null)
-			storeLog.log("done initializing");
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.decreaseIndentation();
 	}
 
 	/**
@@ -100,14 +100,16 @@ class StoreImpl<T> implements Store<T> {
 	 * @throws IOException
 	 */
 	private void cache(long storeID) throws IOException {
-		if (storeLog != null)
-			storeLog.log("caching item " + storeID);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("caching item " + storeID, IndentationAction.INCREASE);
 		Index entry = indexMap.get(storeID);
 		if (entry == null)
 			throw new NoSuchElementException("no item with storeID: " + storeID);
 		writableBuffer.clear();
 		dataFile.readData(entry, writableBuffer);
 		itemCache.cache(storeID, objectTransformer.getFrom(readableBuffer));
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.decreaseIndentation();
 	}
 
 	/**
@@ -117,14 +119,17 @@ class StoreImpl<T> implements Store<T> {
 	 * @throws IOException
 	 */
 	private void deleteImpl(long storeId) throws IOException {
-		if (storeLog != null)
-			storeLog.log("deleting item " + storeId);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("deleting item " + storeId, IndentationAction.INCREASE);
 		Index entry = indexMap.get(storeId);
 		if (entry == null)
 			throw new NoSuchElementException("no item with storeID: " + storeId);
 		indexMap.remove(storeId);
-		itemCache.remove(storeId);
+		if (itemCache.contains(storeId))
+			itemCache.remove(storeId);
 		dataFile.free(entry);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.decreaseIndentation();
 	}
 
 	/**
@@ -135,8 +140,8 @@ class StoreImpl<T> implements Store<T> {
 	 * @throws IOException
 	 */
 	private void updateImpl(long storeId, T content) throws IOException {
-		if (storeLog != null)
-			storeLog.log("updating item " + storeId);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("updating item " + storeId, IndentationAction.INCREASE);
 		Index entry = indexMap.get(storeId);
 		if (entry == null)
 			throw new NoSuchElementException("no item with storeID: " + storeId);
@@ -144,8 +149,11 @@ class StoreImpl<T> implements Store<T> {
 		objectTransformer.putInto(content, writableBuffer);
 		dataFile.free(entry);
 		entry = dataFile.reserveSpace(storeId, readableBuffer.available());
+		indexMap.put(storeId, entry);
 		dataFile.writeData(entry, readableBuffer);
 		itemCache.cache(storeId, content);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.decreaseIndentation();
 	}
 
 	/**
@@ -179,14 +187,18 @@ class StoreImpl<T> implements Store<T> {
 	 * @throws IOException
 	 */
 	private StoreItem<T> storeImpl(T content) throws IOException {
-		if (storeLog != null)
-			storeLog.log("storing new content " + content);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("storing new content " + content, IndentationAction.INCREASE);
 		writableBuffer.clear();
 		objectTransformer.putInto(content, writableBuffer);
 		Index entry = dataFile.reserveSpace(readableBuffer.available());
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("storing content at " + entry);
 		dataFile.writeData(entry, readableBuffer);
 		itemCache.cache(entry.getId(), content);
 		indexMap.put(entry.getId(), entry);
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.decreaseIndentation();
 		return new StoreItem<T>(this, entry.getId());
 	}
 
@@ -223,10 +235,10 @@ class StoreImpl<T> implements Store<T> {
 	 * @throws IOException
 	 */
 	private void closeImpl() throws IOException {
-		if (storeLog != null)
-			storeLog.log("closing store");
+		if (storeLog != null && storeLog.isOpen())
+			storeLog.log("closing store", IndentationAction.INCREASE);
 		dataFile.close();
-		if (storeLog != null)
+		if (storeLog != null && storeLog.isOpen())
 			storeLog.close();
 	}
 
